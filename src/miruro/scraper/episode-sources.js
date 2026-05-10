@@ -1,9 +1,12 @@
 import { axios } from '../../utils/scrapper-deps.js';
+import * as zlib from 'zlib';
 import { USER_AGENT } from '../../utils/constants.js';
 
 const MIRURO_BASE_URL = 'https://www.miruro.tv';
 const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const HEADLESS_TIMEOUT_MS = 20000;
+const PIPE_OBF_KEY = '71951034f8fbcf53d89db52ceb3dc22c';
+const PIPE_PROTOCOL_VERSION = '0.2.0';
 
 const parseEpisodeNumber = (animeEpisodeId, epQuery) => {
   if (epQuery && Number(epQuery) > 0) {
@@ -40,6 +43,199 @@ const normalizeServer = (server) => {
   const validServers = ['telli', 'ally', 'bee', 'bun', 'nun', 'kiwi', 'dune'];
   if (validServers.includes(s)) return s;
   return 'telli';
+};
+
+const parseSubtitleTracksFromM3u8 = (m3u8Content, m3u8Url) => {
+  const tracks = [];
+  if (!m3u8Content || typeof m3u8Content !== 'string') return tracks;
+
+  const baseUrl = m3u8Url.substring(0, m3u8Url.lastIndexOf('/') + 1);
+  const mediaRegex = /#EXT-X-MEDIA:TYPE=SUBTITLES[^,\n]*(?:,[^,\n]*)*/g;
+  const matches = m3u8Content.match(mediaRegex) || [];
+
+  for (const match of matches) {
+    const nameMatch = match.match(/NAME="([^"]+)"/);
+    const langMatch = match.match(/LANGUAGE="([^"]+)"/);
+    const uriMatch = match.match(/URI="([^"]+)"/);
+    const defaultMatch = match.match(/DEFAULT=([^,\s]+)/);
+    const forcedMatch = match.match(/FORCED=([^,\s]+)/);
+
+    if (uriMatch) {
+      let fileUrl = uriMatch[1];
+
+      if (fileUrl.startsWith('//')) {
+        fileUrl = 'https:' + fileUrl;
+      } else if (fileUrl.startsWith('/')) {
+        const urlObj = new URL(m3u8Url);
+        fileUrl = `${urlObj.origin}${fileUrl}`;
+      } else if (!fileUrl.startsWith('http')) {
+        fileUrl = baseUrl + fileUrl;
+      }
+
+      tracks.push({
+        file: fileUrl,
+        label: nameMatch ? nameMatch[1] : (langMatch ? langMatch[1] : 'Unknown'),
+        kind: 'subtitle',
+        default: defaultMatch ? defaultMatch[1] === 'YES' : false,
+        forced: forcedMatch ? forcedMatch[1] === 'YES' : false,
+      });
+    }
+  }
+
+  return tracks;
+};
+
+const normalizeTracks = (tracks) => {
+  if (!Array.isArray(tracks)) return [];
+
+  const seen = new Set();
+  const normalized = [];
+
+  for (const t of tracks) {
+    const file = t?.file || t?.src || t?.url || null;
+    if (!file || typeof file !== 'string') continue;
+
+    const label = typeof t?.label === 'string' && t.label.trim() ? t.label.trim() : 'Unknown';
+    const kind = typeof t?.kind === 'string' && t.kind.trim()
+      ? t.kind.trim()
+      : (typeof t?.type === 'string' && t.type.trim() ? t.type.trim() : 'captions');
+    const def = Boolean(t?.default ?? t?.isDefault ?? false);
+    const forced = Boolean(t?.forced ?? false);
+
+    const key = `${file}|${label}|${kind}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    normalized.push({ file, label, kind, default: def, forced });
+  }
+
+  return normalized;
+};
+
+const base64UrlEncode = (value) => {
+  const input = typeof value === 'string' ? value : JSON.stringify(value);
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+};
+
+const decodePipeResponse = (payload, obfuscatedHeader) => {
+  if (!payload) return null;
+
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4 ? '='.repeat(4 - (base64.length % 4)) : '';
+  const bytes = Buffer.from(base64 + pad, 'base64');
+
+  let decoded = bytes;
+  if (obfuscatedHeader === '2') {
+    const keyBytes = PIPE_OBF_KEY.match(/.{2}/g).map((h) => parseInt(h, 16));
+    const out = Buffer.alloc(bytes.length);
+    for (let i = 0; i < bytes.length; i += 1) {
+      out[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    decoded = out;
+  }
+
+  try {
+    const unzipped = zlib.gunzipSync(decoded).toString('utf8');
+    return JSON.parse(unzipped);
+  } catch {
+    try {
+      return JSON.parse(decoded.toString('utf8'));
+    } catch {
+      return null;
+    }
+  }
+};
+
+const fetchSecurePipe = async ({ path, method = 'GET', query = {}, body = null }) => {
+  const payload = {
+    path,
+    method,
+    query,
+    body,
+    version: PIPE_PROTOCOL_VERSION,
+  };
+
+  const url = `${MIRURO_BASE_URL}/api/secure/pipe?e=${base64UrlEncode(payload)}`;
+  const response = await axios.get(url, {
+    headers: {
+      'User-Agent': DEFAULT_UA,
+      Referer: MIRURO_BASE_URL,
+    },
+    responseType: 'text',
+    timeout: 15000,
+    validateStatus: () => true,
+  });
+
+  if (!response || response.status >= 400) return null;
+  const obfuscated = response.headers?.['x-obfuscated'] || response.headers?.['X-Obfuscated'] || null;
+  const text = typeof response.data === 'string' ? response.data : String(response.data || '');
+  return decodePipeResponse(text, obfuscated);
+};
+
+const fetchMiruroSkipData = async (animeId, episodeNumber) => {
+  if (!animeId || !episodeNumber) return { intro: null, outro: null };
+
+  try {
+    const data = await fetchSecurePipe({
+      path: 'episodes',
+      method: 'GET',
+      query: { anilistId: String(animeId) },
+    });
+
+    const skipEntries = Array.isArray(data?.aniskip)
+      ? data.aniskip
+      : (Array.isArray(data?.mappings?.aniskip) ? data.mappings.aniskip : []);
+    if (!skipEntries.length) {
+      console.log('[getMiruroEpisodeSources] No aniskip entries found for animeId:', animeId);
+    }
+    const matching = skipEntries.filter((entry) => Number(entry?.episode) === Number(episodeNumber));
+    if (!matching.length && skipEntries.length) {
+      console.log('[getMiruroEpisodeSources] No aniskip match for episode:', episodeNumber);
+    }
+    const introEntry = matching.find((entry) => String(entry?.type || '').toLowerCase() === 'op');
+    const outroEntry = matching.find((entry) => String(entry?.type || '').toLowerCase() === 'ed');
+
+    const intro = introEntry
+      ? { start: introEntry.start, end: introEntry.end, type: introEntry.type, provider: introEntry.provider }
+      : null;
+    const outro = outroEntry
+      ? { start: outroEntry.start, end: outroEntry.end, type: outroEntry.type, provider: outroEntry.provider }
+      : null;
+
+    return { intro, outro };
+  } catch (error) {
+    console.log('[getMiruroEpisodeSources] Failed to fetch skip data:', error?.message || 'unknown');
+    return { intro: null, outro: null };
+  }
+};
+
+const applySkipData = async (intro, outro, animeId, episodeNumber) => {
+  if (intro || outro) return { intro, outro };
+  return fetchMiruroSkipData(animeId, episodeNumber);
+};
+
+const resolveM3u8Metadata = async (m3u8Url, referer) => {
+  if (!m3u8Url) return { tracks: [], intro: null, outro: null };
+
+  try {
+    const resp = await axios.get(m3u8Url, {
+      headers: {
+        'User-Agent': DEFAULT_UA,
+        Referer: referer || MIRURO_BASE_URL,
+      },
+      timeout: 12000,
+      validateStatus: () => true,
+    });
+
+    const tracks = normalizeTracks(parseSubtitleTracksFromM3u8(resp?.data || '', m3u8Url));
+    return { tracks, intro: null, outro: null };
+  } catch {
+    return { tracks: [], intro: null, outro: null };
+  }
 };
 
 const collectCandidateUrls = ($, scriptsText) => {
@@ -84,6 +280,30 @@ const pickBestEmbedUrl = (candidates, serverName) => {
   );
 };
 
+const extractTracksFromMediaData = (mediaData) => {
+  if (!mediaData) return [];
+
+  const candidates = [];
+  if (Array.isArray(mediaData?.tracks)) candidates.push(...mediaData.tracks);
+  if (Array.isArray(mediaData?.subtitles)) candidates.push(...mediaData.subtitles);
+  if (Array.isArray(mediaData?.captions)) candidates.push(...mediaData.captions);
+  if (mediaData?.track) {
+    if (Array.isArray(mediaData.track)) candidates.push(...mediaData.track);
+    else candidates.push(mediaData.track);
+  }
+
+  return normalizeTracks(candidates);
+};
+
+const extractSkipData = (mediaData) => {
+  if (!mediaData) return { intro: null, outro: null };
+
+  const intro = mediaData?.skip?.intro ?? mediaData?.intro ?? null;
+  const outro = mediaData?.skip?.outro ?? mediaData?.outro ?? null;
+
+  return { intro, outro };
+};
+
 const extractM3u8WithPuppeteer = async (targetUrl, referer, serverName, category) => {
   if (process.env.MIRURO_USE_HEADLESS === 'false') return null;
 
@@ -92,6 +312,8 @@ const extractM3u8WithPuppeteer = async (targetUrl, referer, serverName, category
   let browser;
   let page;
   let m3u8Url = null;
+  let mediaData = null;
+  const responsePromises = [];
 
   try {
     browser = await puppeteer.launch({
@@ -112,7 +334,23 @@ const extractM3u8WithPuppeteer = async (targetUrl, referer, serverName, category
     };
 
     page.on('request', (req) => captureUrl(req.url()));
-    page.on('response', (res) => captureUrl(res.url()));
+    page.on('response', (res) => {
+      captureUrl(res.url());
+      const headers = res.headers();
+      const contentType = String(headers['content-type'] || headers['Content-Type'] || '').toLowerCase();
+      if (!contentType.includes('application/json')) return;
+
+      responsePromises.push(
+        res.text()
+          .then((text) => {
+            const payload = JSON.parse(text);
+            if (payload && typeof payload === 'object') {
+              mediaData = payload;
+            }
+          })
+          .catch(() => null)
+      );
+    });
 
     await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: HEADLESS_TIMEOUT_MS });
 
@@ -178,7 +416,8 @@ const extractM3u8WithPuppeteer = async (targetUrl, referer, serverName, category
     );
 
     if (!selectionResult?.changeRequested && initialM3u8) {
-      return initialM3u8;
+      await Promise.allSettled(responsePromises);
+      return { m3u8Url: initialM3u8, mediaData };
     }
 
     m3u8Url = null;
@@ -251,6 +490,8 @@ const extractM3u8WithPuppeteer = async (targetUrl, referer, serverName, category
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
+
+    await Promise.allSettled(responsePromises);
   } catch {
     return null;
   } finally {
@@ -266,7 +507,7 @@ const extractM3u8WithPuppeteer = async (targetUrl, referer, serverName, category
     }
   }
 
-  return m3u8Url;
+  return { m3u8Url, mediaData };
 };
 
 export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, category }) => {
@@ -340,6 +581,8 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
     const source = m3u8Url || (videoSrc && videoSrc.includes('.m3u8') ? videoSrc : null);
 
     if (source) {
+      const meta = await resolveM3u8Metadata(source, MIRURO_BASE_URL);
+      const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
       return {
         animeId,
         episode: episodeNumber,
@@ -354,9 +597,9 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
             category: normalizedCategory,
           },
         ],
-        tracks: [],
-        intro: null,
-        outro: null,
+        tracks: meta.tracks,
+        intro: skipData.intro ?? meta.intro,
+        outro: skipData.outro ?? meta.outro,
         note: 'Direct m3u8 stream found',
       };
     }
@@ -385,6 +628,8 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
       })();
 
       if (embedSource && embedSource.includes('.m3u8')) {
+        const meta = await resolveM3u8Metadata(embedSource, embedUrl);
+        const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
         return {
           animeId,
           episode: episodeNumber,
@@ -399,9 +644,9 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
               category: normalizedCategory,
             },
           ],
-          tracks: [],
-          intro: null,
-          outro: null,
+          tracks: meta.tracks,
+          intro: skipData.intro ?? meta.intro,
+          outro: skipData.outro ?? meta.outro,
           note: 'm3u8 extracted from embed URL',
         };
       }
@@ -470,6 +715,8 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
 
     if (embedSource) {
       const isM3u8 = embedSource.includes('.m3u8');
+      const meta = isM3u8 ? await resolveM3u8Metadata(embedSource, embedUrl) : { tracks: [], intro: null, outro: null };
+      const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
 
       return {
         animeId,
@@ -485,9 +732,9 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
             category: normalizedCategory,
           },
         ],
-        tracks: [],
-        intro: null,
-        outro: null,
+        tracks: meta.tracks,
+        intro: skipData.intro ?? meta.intro,
+        outro: skipData.outro ?? meta.outro,
         note: isM3u8 ? 'm3u8 extracted from embed page' : 'Video source from embed page',
       };
     }
@@ -508,18 +755,24 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
     };
 
     const embedTarget = serverUrls[normalizedServer] || serverUrls['telli'];
-    const m3u8FromWatch = await extractM3u8WithPuppeteer(
+    const watchResult = await extractM3u8WithPuppeteer(
       watchUrl,
       MIRURO_BASE_URL,
       normalizedServer,
       normalizedCategory
     );
-    const m3u8FromEmbed = m3u8FromWatch
+    const embedResult = watchResult?.m3u8Url
       ? null
       : await extractM3u8WithPuppeteer(embedTarget, MIRURO_BASE_URL, normalizedServer, normalizedCategory);
-    const m3u8 = m3u8FromEmbed || m3u8FromWatch;
+    const m3u8 = watchResult?.m3u8Url || embedResult?.m3u8Url || null;
+    const mediaData = watchResult?.mediaData || embedResult?.mediaData || null;
 
     if (m3u8) {
+      const meta = await resolveM3u8Metadata(m3u8, MIRURO_BASE_URL);
+      const extractedTracks = extractTracksFromMediaData(mediaData);
+      const skipData = extractSkipData(mediaData);
+      const tracks = extractedTracks.length ? extractedTracks : meta.tracks;
+      const fallbackSkip = await applySkipData(skipData.intro, skipData.outro, animeId, episodeNumber);
       return {
         animeId,
         episode: episodeNumber,
@@ -534,9 +787,9 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
             category: normalizedCategory,
           },
         ],
-        tracks: [],
-        intro: null,
-        outro: null,
+        tracks,
+        intro: fallbackSkip.intro ?? meta.intro,
+        outro: fallbackSkip.outro ?? meta.outro,
         note: 'm3u8 captured from headless browser requests',
       };
     }
