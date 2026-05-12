@@ -482,14 +482,14 @@ const tryFetchEmbedApiSources = async ({ candidates, referer }) => {
       const m3u8 = extractM3u8FromPayload(payload);
       if (m3u8) return { m3u8Url: m3u8, mediaData: payload };
 
-      const resp = await axios.get(url, {
+        const resp = await axios.get(url, {
         headers: {
           'User-Agent': DEFAULT_UA,
           'X-Requested-With': 'XMLHttpRequest',
           Referer: referer || MIRURO_BASE_URL,
           Accept: 'application/json,text/plain,*/*',
         },
-        timeout: 8000,
+        timeout: API_TIMEOUT_MS,
         validateStatus: () => true,
       });
 
@@ -891,8 +891,10 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
     const source = m3u8Url || (videoSrc && videoSrc.includes('.m3u8') ? videoSrc : null);
 
     if (source) {
-      const meta = await resolveM3u8Metadata(source, MIRURO_BASE_URL);
-      const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
+      const [meta, skipData] = await Promise.all([
+        resolveM3u8Metadata(source, MIRURO_BASE_URL),
+        fetchMiruroSkipData(animeId, episodeNumber),
+      ]);
       return withCache({
         animeId,
         episode: episodeNumber,
@@ -930,9 +932,11 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
       })();
 
       if (embedSource && embedSource.includes('.m3u8')) {
-        const meta = await resolveM3u8Metadata(embedSource, embedUrl);
-        const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
-        return withCache({
+          const [meta, skipData] = await Promise.all([
+            resolveM3u8Metadata(embedSource, embedUrl),
+            fetchMiruroSkipData(animeId, episodeNumber),
+          ]);
+          return withCache({
           animeId,
           episode: episodeNumber,
           sourcePage: watchUrl,
@@ -978,46 +982,52 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
       `${apiBase}/api/v1/m3u8/${animeId}/${episodeNumber}?dub=${normalizedCategory === 'dub' ? 1 : 0}`,
     ];
 
-    for (const apiUrl of apiEndpoints) {
-      try {
-        const resp = await axios.get(apiUrl, {
-          headers: {
-            'User-Agent': DEFAULT_UA,
-            'X-Requested-With': 'XMLHttpRequest',
-            Referer: `${apiBase}/`,
-            Accept: 'application/json,text/plain,*/*',
-          },
-          timeout: 8000,
-          validateStatus: () => true,
-        });
+    // Parallelize API endpoint requests and return on first successful m3u8
+    try {
+      const endpointPromises = apiEndpoints.map((apiUrl) =>
+        axios
+          .get(apiUrl, {
+            headers: {
+              'User-Agent': DEFAULT_UA,
+              'X-Requested-With': 'XMLHttpRequest',
+              Referer: `${apiBase}/`,
+              Accept: 'application/json,text/plain,*/*',
+            },
+            timeout: API_TIMEOUT_MS,
+            validateStatus: () => true,
+          })
+          .then((resp) => ({ apiUrl, data: resp?.data }))
+          .catch(() => null)
+      );
 
-        if (resp.data) {
-          const m3u8 = extractM3u8FromPayload(resp.data);
-          if (m3u8) {
-            const meta = await resolveM3u8Metadata(m3u8, apiBase);
-            const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
-            return withCache({
-              animeId,
-              episode: episodeNumber,
-              sourcePage: watchUrl,
-              sources: [{
-                source: m3u8,
-                type: 'm3u8',
-                quality: null,
-                referer: apiBase,
-                server: normalizedServer,
-                category: normalizedCategory,
-              }],
-              tracks: meta.tracks,
-              intro: skipData.intro ?? meta.intro,
-              outro: skipData.outro ?? meta.outro,
-              note: `m3u8 from ${normalizedCategory} API`,
-            });
-          }
+      const settled = await Promise.all(endpointPromises);
+      for (const res of settled) {
+        if (!res || !res.data) continue;
+        const m3u8 = extractM3u8FromPayload(res.data);
+        if (m3u8) {
+          const meta = await resolveM3u8Metadata(m3u8, apiBase);
+          const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
+          return withCache({
+            animeId,
+            episode: episodeNumber,
+            sourcePage: watchUrl,
+            sources: [{
+              source: m3u8,
+              type: 'm3u8',
+              quality: null,
+              referer: apiBase,
+              server: normalizedServer,
+              category: normalizedCategory,
+            }],
+            tracks: meta.tracks,
+            intro: skipData.intro ?? meta.intro,
+            outro: skipData.outro ?? meta.outro,
+            note: `m3u8 from ${normalizedCategory} API`,
+          });
         }
-      } catch {
-        continue;
       }
+    } catch (e) {
+      console.log('[getMiruroEpisodeSources] Parallel API error:', e?.message || e);
     }
   } catch (apiError) {
     console.log('[getMiruroEpisodeSources] Direct API error:', apiError.message);
@@ -1075,10 +1085,11 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
 
     const embedSource = embedM3u8 || embedVideoSrc || null;
 
-    if (embedSource) {
+      if (embedSource) {
       const isM3u8 = embedSource.includes('.m3u8');
-      const meta = isM3u8 ? await resolveM3u8Metadata(embedSource, embedUrl) : { tracks: [], intro: null, outro: null };
-      const skipData = await applySkipData(meta.intro, meta.outro, animeId, episodeNumber);
+      const [meta, skipData] = isM3u8
+        ? await Promise.all([resolveM3u8Metadata(embedSource, embedUrl), fetchMiruroSkipData(animeId, episodeNumber)])
+        : [{ tracks: [], intro: null, outro: null }, await fetchMiruroSkipData(animeId, episodeNumber)];
 
       return withCache({
         animeId,
@@ -1103,11 +1114,14 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
 
     const apiResult = await tryFetchEmbedApiSources({ candidates: embedCandidates, referer: embedUrl });
     if (apiResult?.m3u8Url) {
-      const meta = await resolveM3u8Metadata(apiResult.m3u8Url, embedUrl);
+      const [meta, skipDataFromApi] = await Promise.all([
+        resolveM3u8Metadata(apiResult.m3u8Url, embedUrl),
+        fetchMiruroSkipData(animeId, episodeNumber),
+      ]);
       const extractedTracks = extractTracksFromMediaData(apiResult.mediaData);
       const skipData = extractSkipData(apiResult.mediaData);
       const tracks = extractedTracks.length ? extractedTracks : meta.tracks;
-      const fallbackSkip = await applySkipData(skipData.intro, skipData.outro, animeId, episodeNumber);
+      const fallbackSkip = { intro: skipData.intro ?? skipDataFromApi.intro, outro: skipData.outro ?? skipDataFromApi.outro };
       return withCache({
         animeId,
         episode: episodeNumber,
@@ -1184,11 +1198,14 @@ export const getMiruroEpisodeSources = async ({ animeEpisodeId, ep, server, cate
     }
 
     if (m3u8) {
-      const meta = await resolveM3u8Metadata(m3u8, MIRURO_BASE_URL);
+      const [meta, skipDataFromApi] = await Promise.all([
+        resolveM3u8Metadata(m3u8, MIRURO_BASE_URL),
+        fetchMiruroSkipData(animeId, episodeNumber),
+      ]);
       const extractedTracks = extractTracksFromMediaData(mediaData);
       const skipData = extractSkipData(mediaData);
       const tracks = extractedTracks.length ? extractedTracks : meta.tracks;
-      const fallbackSkip = await applySkipData(skipData.intro, skipData.outro, animeId, episodeNumber);
+      const fallbackSkip = { intro: skipData.intro ?? skipDataFromApi.intro, outro: skipData.outro ?? skipDataFromApi.outro };
 
       const note = serverAvailable
         ? 'm3u8 captured from headless browser requests'
