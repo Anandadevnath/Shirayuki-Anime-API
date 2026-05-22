@@ -1,4 +1,5 @@
 import { load, axios } from '../../utils/scrapper-deps.js';
+import { resolveMalId, getSkipTimes } from './aniskip.js';
 
 const HIANIME_BASE_URL = 'https://hianime.ad';
 const DEFAULT_UA =
@@ -225,6 +226,9 @@ export const getHianimeEpisodeSources = async ({ animeEpisodeId, ep, server, cat
 
   const $watch = load(watchHtml);
   const title = $watch('title').first().text().trim() || null;
+  const dTitleEl = $watch('.d-title').first();
+  const searchTitle =
+    dTitleEl.attr('data-jp') || dTitleEl.attr('data-en') || dTitleEl.text().trim() || null;
 
   const servers = parseServerList($watch, normalizedCategory);
   if (!servers.length) {
@@ -236,12 +240,16 @@ export const getHianimeEpisodeSources = async ({ animeEpisodeId, ep, server, cat
     throw new Error('Requested Hianime server is unavailable');
   }
 
-  let m3u8 = null;
-  try {
-    m3u8 = await resolveEmbedM3u8(watchUrl, picked.embed);
-  } catch (error) {
-    console.log('[getHianimeEpisodeSources] Failed to resolve embed m3u8:', error.message);
-  }
+  const [m3u8Result, malId] = await Promise.all([
+    resolveEmbedM3u8(watchUrl, picked.embed).catch((error) => {
+      console.log('[getHianimeEpisodeSources] Failed to resolve embed m3u8:', error.message);
+      return null;
+    }),
+    resolveMalId(animeId, searchTitle),
+  ]);
+
+  const m3u8 = m3u8Result;
+  const { intro, outro } = await getSkipTimes(malId, episodeNumber);
 
   const tracks = extractTracksFromEmbedUrl(picked.embed);
 
@@ -251,6 +259,7 @@ export const getHianimeEpisodeSources = async ({ animeEpisodeId, ep, server, cat
     episode: episodeNumber,
     episodeSlug: `ep-${episodeNumber}`,
     sourcePage: watchUrl,
+    malId: malId || null,
     sources: [
       {
         m3u8: m3u8 || picked.embed,
@@ -263,7 +272,7 @@ export const getHianimeEpisodeSources = async ({ animeEpisodeId, ep, server, cat
       },
     ],
     tracks,
-    intro: null,
-    outro: null,
+    intro,
+    outro,
   };
 };
