@@ -19,6 +19,7 @@ import animekaiEpisodeServersRouter from './src/animekai/router/episode-servers.
 import animekaiEpisodeSourcesRouter from './src/animekai/router/streaming-server.js';
 import animekaiProxyRouter from './src/animekai/router/proxy.js';
 import { animekaiEpisodesController } from './src/animekai/controllers/episodes.js';
+import hianimeEpisodeSourcesRouter from './src/hianime/router/streaming-server.js';
 
 const app = new Hono();
 
@@ -54,6 +55,12 @@ app.get('/', (c) => {
             '/api/v2/animekai/episode/sources?animeEpisodeId=witch-hat-atelier-3e32&ep=1&server=server-1&category=sub',
         },
       },
+      hianime: {
+        episode: {
+          sources:
+            '/api/v2/hianime/episode/sources?animeEpisodeId=one-piece&ep=1&server=hd-1&category=sub',
+        },
+      },
     },
   });
 });
@@ -76,6 +83,7 @@ app.route('/api/v2/animekai/anime', animekaiNextEpisodeRouter);
 app.route('/api/v2/animekai/episode', animekaiEpisodeServersRouter);
 app.route('/api/v2/animekai/episode/sources', animekaiEpisodeSourcesRouter);
 app.route('/api/v2/animekai/proxy', animekaiProxyRouter);
+app.route('/api/v2/hianime/episode/sources', hianimeEpisodeSourcesRouter);
 
 // Compatibility alias: supports /api/v2/animekai/:animeId/episodes format.
 app.get('/api/v2/animekai/:animeId/episodes', animekaiEpisodesController);
