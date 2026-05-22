@@ -20,6 +20,16 @@ import animekaiEpisodeSourcesRouter from './src/animekai/router/streaming-server
 import animekaiProxyRouter from './src/animekai/router/proxy.js';
 import { animekaiEpisodesController } from './src/animekai/controllers/episodes.js';
 import hianimeEpisodeSourcesRouter from './src/hianime/router/streaming-server.js';
+import hianimeHomeRouter from './src/hianime/router/home.js';
+import hianimeAzlistRouter from './src/hianime/router/azlist.js';
+import hianimeAnimeRouter from './src/hianime/router/anime.js';
+import hianimeSearchRouter from './src/hianime/router/search.js';
+import hianimeSearchAdvancedRouter from './src/hianime/router/search-advanced.js';
+import hianimeSearchSuggestionRouter from './src/hianime/router/search-suggestion.js';
+import hianimeGenreRouter from './src/hianime/router/genre.js';
+import hianimeCategoryRouter from './src/hianime/router/category.js';
+import hianimeScheduleRouter from './src/hianime/router/schedule.js';
+import hianimeEpisodeServersRouter from './src/hianime/router/episode-servers.js';
 
 const app = new Hono();
 
@@ -56,7 +66,23 @@ app.get('/', (c) => {
         },
       },
       hianime: {
+        home: '/api/v2/hianime/home',
+        azlist: '/api/v2/hianime/azlist/A?page=1',
+        animeDetails: '/api/v2/hianime/anime/one-piece',
+        animeEpisodes: '/api/v2/hianime/anime/one-piece/episodes',
+        nextEpisode: '/api/v2/hianime/anime/one-piece/next-episode',
+        search: {
+          basic: '/api/v2/hianime/search?q=naruto&page=1',
+          advanced: '/api/v2/hianime/search/advanced?q=naruto&type=tv&genres=action&page=1',
+          suggestion: '/api/v2/hianime/search/suggestion?q=naruto',
+        },
+        discover: {
+          genre: '/api/v2/hianime/genre/action?page=1',
+          category: '/api/v2/hianime/category/most-popular?page=1',
+          schedule: '/api/v2/hianime/schedule?date=2026-05-22&timezone=UTC',
+        },
         episode: {
+          servers: '/api/v2/hianime/episode/servers?animeEpisodeId=one-piece&ep=1',
           sources:
             '/api/v2/hianime/episode/sources?animeEpisodeId=one-piece&ep=1&server=hd-1&category=sub',
         },
@@ -83,6 +109,16 @@ app.route('/api/v2/animekai/anime', animekaiNextEpisodeRouter);
 app.route('/api/v2/animekai/episode', animekaiEpisodeServersRouter);
 app.route('/api/v2/animekai/episode/sources', animekaiEpisodeSourcesRouter);
 app.route('/api/v2/animekai/proxy', animekaiProxyRouter);
+app.route('/api/v2/hianime/home', hianimeHomeRouter);
+app.route('/api/v2/hianime/azlist', hianimeAzlistRouter);
+app.route('/api/v2/hianime/anime', hianimeAnimeRouter);
+app.route('/api/v2/hianime/search', hianimeSearchRouter);
+app.route('/api/v2/hianime/search/advanced', hianimeSearchAdvancedRouter);
+app.route('/api/v2/hianime/search/suggestion', hianimeSearchSuggestionRouter);
+app.route('/api/v2/hianime/genre', hianimeGenreRouter);
+app.route('/api/v2/hianime/category', hianimeCategoryRouter);
+app.route('/api/v2/hianime/schedule', hianimeScheduleRouter);
+app.route('/api/v2/hianime/episode', hianimeEpisodeServersRouter);
 app.route('/api/v2/hianime/episode/sources', hianimeEpisodeSourcesRouter);
 
 // Compatibility alias: supports /api/v2/animekai/:animeId/episodes format.
