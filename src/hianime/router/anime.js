@@ -1,10 +1,8 @@
-import { Hono } from 'hono';
-import { hianimeAnimeController } from '../controllers/anime.js';
-import { hianimeEpisodesController } from '../controllers/episodes.js';
-import { hianimeNextEpisodeController } from '../controllers/next-episode.js';
+import { Hono } from "hono";
+import { hianimeAnimeController } from "../controllers/anime.js";
+import { hianimeEpisodesController } from "../controllers/episodes.js";
 
 const router = new Hono();
-router.get('/:animeId', hianimeAnimeController);
-router.get('/:animeId/episodes', hianimeEpisodesController);
-router.get('/:animeId/next-episode', hianimeNextEpisodeController);
+router.get("/:animeId", hianimeAnimeController);
+router.get("/:animeId/episodes", hianimeEpisodesController);
 export default router;
