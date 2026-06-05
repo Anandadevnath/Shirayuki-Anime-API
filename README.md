@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://github.com/Anandadevnath/Shirayuki-Scrapper-API-V2"><img src="https://img.shields.io/github/stars/Anandadevnath/Shirayuki-Scrapper-API-V2?style=social" alt="Stars"></a>
-  <a href="https://github.com/Anandadevnath/Shirayuki-Scrapper-API-V2/network/members"><img src="https://img.shields.io/github/forks/Anandadevnath/Shirayuki-Scrapper-API-V2?style=social" alt="Forks"></a>
+  <a href="https://github.com/Anandadevnath/Shirayuki-Anime-API"><img src="https://img.shields.io/github/stars/Anandadevnath/Shirayuki-Anime-API?style=social" alt="Stars"></a>
+  <a href="https://github.com/Anandadevnath/Shirayuki-Anime-API/network/members"><img src="https://img.shields.io/github/forks/Anandadevnath/Shirayuki-Anime-API?style=social" alt="Forks"></a>
   <img src="https://img.shields.io/badge/Framework-Hono-ee6c00?style=for-the-badge&logo=fire" alt="Hono">
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
   <img src="https://img.shields.io/badge/Platform-REST%20API-green?style=for-the-badge" alt="REST API">
@@ -18,11 +18,11 @@
 ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝
 ```
 
-# 🔥 Shirayuki Scrapper API V2
+# 🔥 Shirayuki Anime API
 
 > **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
 
-*A RESTful API for scraping anime data from Aniwatch. Features search, streaming sources, schedules, and more — all wrapped in a clean Hono interface.*
+*A RESTful API for scraping anime data from HiAnime and Anikuro. Features search, streaming sources, schedules, and more — all wrapped in a clean Hono interface.*
 
 </div>
 
@@ -37,9 +37,8 @@
 | 🏠 **Home & Trending** | Spotlight, trending anime, top charts |
 | 🔍 **Smart Search** | Basic, advanced filters, autocomplete |
 | 📺 **Anime Details** | Full metadata, episodes, schedules |
-| 🎬 **Streaming Sources** | Episode servers, video links, proxy |
+| 🎬 **Streaming Sources** | Episode servers and video sources |
 | 🗓️ **Schedules** | Daily airing schedules by date |
-| 🌐 **CORS Proxy** | Bypass restrictions seamlessly |
 
 </div>
 
@@ -49,8 +48,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/Anandadevnath/Shirayuki-Scrapper-API-V2.git
-cd Shirayuki-Scrapper-API-V2
+git clone https://github.com/Anandadevnath/Shirayuki-Anime-API.git
+cd Shirayuki-Anime-API
 
 # Install dependencies
 npm install
@@ -58,46 +57,37 @@ npm install
 # Start the server
 npm run start
 
-# Server runs at → http://localhost:3000/api/v2/animekai
+# Server runs at → http://localhost:3000/api/v2/hianime
 ```
 
 ---
 
 ## 📡 API Endpoints
 
-### Core Endpoints
+### HiAnime
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v2/animekai/home` | Spotlight, trending, top anime |
-| `GET` | `/api/v2/animekai/azlist/:sort` | Browse anime A-Z |
-| `GET` | `/api/v2/animekai/anime/:id` | Full anime details |
-| `GET` | `/api/v2/animekai/anime/:id/episodes` | Episode list |
+| `GET` | `/api/v2/hianime/home` | Spotlight, trending, top anime |
+| `GET` | `/api/v2/hianime/azlist/:letter?page=1` | Browse anime A-Z |
+| `GET` | `/api/v2/hianime/anime/:animeId` | Full anime details |
+| `GET` | `/api/v2/hianime/anime/:animeId/episodes` | Episode list |
+| `GET` | `/api/v2/hianime/search?q=&page=1` | Basic search |
+| `GET` | `/api/v2/hianime/search/advanced` | Advanced filters |
+| `GET` | `/api/v2/hianime/search/suggestion?q=` | Autocomplete |
+| `GET` | `/api/v2/hianime/producer/:producer?page=1` | Filter by studio |
+| `GET` | `/api/v2/hianime/genre/:genre?page=1` | Filter by genre |
+| `GET` | `/api/v2/hianime/category/:category?page=1` | Curated lists |
+| `GET` | `/api/v2/hianime/schedule?date=YYYY-MM-DD&timezone=UTC` | Daily schedule |
+| `GET` | `/api/v2/hianime/episode/servers?animeEpisodeId=&ep=` | Get streaming servers (animeEpisodeId required) |
+| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=&category=` | Get video sources (animeEpisodeId required) |
 
-### Search
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/animekai/search?q=` | Basic search |
-| `GET` | `/api/v2/animekai/search/advanced` | Advanced filters |
-| `GET` | `/api/v2/animekai/search/suggestion` | Autocomplete |
-
-### Discovery
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/animekai/producer/:name` | Filter by studio |
-| `GET` | `/api/v2/animekai/genre/:name` | Filter by genre |
-| `GET` | `/api/v2/animekai/category/:name` | Curated lists |
-| `GET` | `/api/v2/animekai/schedule` | Daily schedule |
-
-### Streaming
+### Anikuro
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v2/animekai/episode/servers` | Get streaming servers |
-| `GET` | `/api/v2/animekai/episode/sources` | Get video sources |
-| `GET` | `/api/v2/animekai/proxy?url=` | CORS proxy |
+| `GET` | `/api/v2/anikuro/episode/servers?animeEpisodeId=&ep=` | Get streaming servers (animeEpisodeId required) |
+| `GET` | `/api/v2/anikuro/episode/sources?animeEpisodeId=&ep=&server=&category=` | Get video sources (animeEpisodeId required) |
 
 ---
 
@@ -105,32 +95,37 @@ npm run start
 
 ### Get Trending Anime
 ```bash
-curl "http://localhost:3000/api/v2/animekai/home"
+curl "http://localhost:3000/api/v2/hianime/home"
 ```
 
 ### Search for Anime
 ```bash
-curl "http://localhost:3000/api/v2/animekai/search?q=attack%20on%20titan"
+curl "http://localhost:3000/api/v2/hianime/search?q=attack%20on%20titan&page=1"
 ```
 
 ### Get Anime Details
 ```bash
-curl "http://localhost:3000/api/v2/animekai/anime/steinsgate-3"
+curl "http://localhost:3000/api/v2/hianime/anime/one-piece"
 ```
 
 ### Get Episode Servers
 ```bash
-curl "http://localhost:3000/api/v2/animekai/episode/servers?animeEpisodeId=steinsgate-3?ep=213"
+curl "http://localhost:3000/api/v2/hianime/episode/servers?animeEpisodeId=one-piece&ep=1"
 ```
 
 ### Advanced Search
 ```bash
-curl "http://localhost:3000/api/v2/animekai/search/advanced?q=titan&genres=action&type=movie&sort=score"
+curl "http://localhost:3000/api/v2/hianime/search/advanced?q=titan&genres=action&type=movie&sort=score&page=1"
 ```
 
 ### Get Schedule
 ```bash
-curl "http://localhost:3000/api/v2/animekai/schedule?date=2024-01-01&tzOffset=-330"
+curl "http://localhost:3000/api/v2/hianime/schedule?date=2026-05-22&timezone=UTC"
+```
+
+### Get Episode Sources (Anikuro)
+```bash
+curl "http://localhost:3000/api/v2/anikuro/episode/sources?animeEpisodeId=199221:1&ep=1&server=anikoto&category=dub"
 ```
 
 ---
@@ -165,12 +160,16 @@ NODE_ENV=development         # Environment: development/production/test
 ## 📁 Project Structure
 
 ```
-shirayuki-scrapper-api-v2/
+Shirayuki-Anime-API/
 ├── index.js                    # Entry point
 ├── src/
-│   ├── animekai/
-│   │   ├── controllers/        # Business logic (16 controllers)
-│   │   ├── router/            # Route definitions (15 routers)
+│   ├── hianime/
+│   │   ├── controllers/        # Business logic
+│   │   ├── router/            # Route definitions
+│   │   └── scraper/           # Scraping utilities
+│   ├── anikuro/
+│   │   ├── controllers/        # Business logic
+│   │   ├── router/            # Route definitions
 │   │   └── scraper/           # Scraping utilities
 │   ├── config/
 │   │   ├── env.js             # Environment validation
