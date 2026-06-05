@@ -27,7 +27,7 @@ app.use("*", cors());
 // Root
 app.get("/", (c) => {
   return c.json({
-    message: "Shirayuki Scrapper API V2",
+    message: "Shirayuki-Anime-API",
     endpoints: {
       hianime: {
         home: "/api/v2/hianime/home",
