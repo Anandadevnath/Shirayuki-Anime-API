@@ -43,6 +43,7 @@ import animexGenreRouter from "./src/animex/router/genre.js";
 import animexCategoryRouter from "./src/animex/router/category.js";
 import animexProducerRouter from "./src/animex/router/producer.js";
 import animexScheduleRouter from "./src/animex/router/schedule.js";
+import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 
 const app = new Hono();
 
@@ -50,91 +51,12 @@ const app = new Hono();
 app.use("*", logger());
 app.use("*", cors());
 
-// Root
-app.get("/", (c) => {
-  return c.json({
-    message: "Shirayuki-Anime-API",
-    endpoints: {
-      hianime: {
-        home: "/api/v2/hianime/home",
-        azlist: "/api/v2/hianime/azlist/A?page=1",
-        animeDetails: "/api/v2/hianime/anime/one-piece",
-        animeEpisodes: "/api/v2/hianime/anime/one-piece/episodes",
-        search: {
-          basic: "/api/v2/hianime/search?q=naruto&page=1",
-          advanced:
-            "/api/v2/hianime/search/advanced?q=naruto&type=tv&genres=action&page=1",
-          suggestion: "/api/v2/hianime/search/suggestion?q=naruto",
-        },
-        discover: {
-          producer: "/api/v2/hianime/producer/toei-animation?page=1",
-          genre: "/api/v2/hianime/genre/action?page=1",
-          category: "/api/v2/hianime/category/most-popular?page=1",
-          schedule: "/api/v2/hianime/schedule?date=2026-05-22&timezone=UTC",
-        },
-        episode: {
-          servers:
-            "/api/v2/hianime/episode/servers?animeEpisodeId=one-piece&ep=1",
-          sources:
-            "/api/v2/hianime/episode/sources?animeEpisodeId=one-piece&ep=1&server=hd-1&category=sub",
-        },
-      },
-      anikuro: {
-        episode: {
-          servers: "/api/v2/anikuro/episode/servers?animeEpisodeId=180745&ep=1",
-          sources:
-            "/api/v2/anikuro/episode/sources?animeEpisodeId=199221:1&server=anikoto&category=dub",
-        },
-      },
-      anixo: {
-        home: "/api/v2/anixo/home",
-        azlist: "/api/v2/anixo/azlist/A?page=1",
-        animeDetails: "/api/v2/anixo/anime/21",
-        animeEpisodes: "/api/v2/anixo/anime/21/episodes",
-        search: {
-          basic: "/api/v2/anixo/search?q=naruto&page=1",
-          advanced:
-            "/api/v2/anixo/search/advanced?q=naruto&type=tv&genres=action&page=1",
-          suggestion: "/api/v2/anixo/search/suggestion?q=naruto",
-        },
-        discover: {
-          producer: "/api/v2/anixo/producer/toei-animation?page=1",
-          genre: "/api/v2/anixo/genre/action?page=1",
-          category: "/api/v2/anixo/category/most-popular?page=1",
-          schedule: "/api/v2/anixo/schedule?date=2026-05-22&timezone=UTC",
-        },
-        episode: {
-          servers: "/api/v2/anixo/episode/servers?animeEpisodeId=21&ep=1",
-          sources:
-            "/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub",
-        },
-      },
-      animex: {
-        home: "/api/v2/animex/home",
-        azlist: "/api/v2/animex/azlist/A?page=1",
-        animeDetails: "/api/v2/animex/anime/21",
-        animeEpisodes: "/api/v2/animex/anime/21/episodes",
-        search: {
-          basic: "/api/v2/animex/search?q=naruto&page=1",
-          advanced:
-            "/api/v2/animex/search/advanced?q=naruto&type=tv&genres=action&page=1",
-          suggestion: "/api/v2/animex/search/suggestion?q=naruto",
-        },
-        discover: {
-          producer: "/api/v2/animex/producer/toei-animation?page=1",
-          genre: "/api/v2/animex/genre/action?page=1",
-          category: "/api/v2/animex/category/most-popular?page=1",
-          schedule: "/api/v2/animex/schedule?date=2026-05-22&timezone=UTC",
-        },
-        episode: {
-          servers: "/api/v2/animex/episode/servers?animeEpisodeId=21&ep=1",
-          sources:
-            "/api/v2/animex/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub",
-        },
-      },
-    },
-  });
-});
+// Root — HTML API explorer (raw catalog available at /endpoints.json)
+app.get("/", (c) => c.html(renderLandingPage()));
+
+app.get("/endpoints.json", (c) =>
+  c.json({ message: "Shirayuki-Anime-API", ...API_CATALOG }),
+);
 
 // API Routes
 app.route("/api/v2/hianime/home", hianimeHomeRouter);
