@@ -33,6 +33,16 @@ import anixoScheduleRouter from "./src/anixo/router/schedule.js";
 import animexEpisodeSourcesRouter from "./src/animex/router/streaming-server.js";
 import animexEpisodeServersRouter from "./src/animex/router/episode-servers.js";
 import animexProxyRouter from "./src/animex/router/proxy.js";
+import animexHomeRouter from "./src/animex/router/home.js";
+import animexAzlistRouter from "./src/animex/router/azlist.js";
+import animexAnimeRouter from "./src/animex/router/anime.js";
+import animexSearchRouter from "./src/animex/router/search.js";
+import animexSearchAdvancedRouter from "./src/animex/router/search-advanced.js";
+import animexSearchSuggestionRouter from "./src/animex/router/search-suggestion.js";
+import animexGenreRouter from "./src/animex/router/genre.js";
+import animexCategoryRouter from "./src/animex/router/category.js";
+import animexProducerRouter from "./src/animex/router/producer.js";
+import animexScheduleRouter from "./src/animex/router/schedule.js";
 
 const app = new Hono();
 
@@ -100,6 +110,22 @@ app.get("/", (c) => {
         },
       },
       animex: {
+        home: "/api/v2/animex/home",
+        azlist: "/api/v2/animex/azlist/A?page=1",
+        animeDetails: "/api/v2/animex/anime/21",
+        animeEpisodes: "/api/v2/animex/anime/21/episodes",
+        search: {
+          basic: "/api/v2/animex/search?q=naruto&page=1",
+          advanced:
+            "/api/v2/animex/search/advanced?q=naruto&type=tv&genres=action&page=1",
+          suggestion: "/api/v2/animex/search/suggestion?q=naruto",
+        },
+        discover: {
+          producer: "/api/v2/animex/producer/toei-animation?page=1",
+          genre: "/api/v2/animex/genre/action?page=1",
+          category: "/api/v2/animex/category/most-popular?page=1",
+          schedule: "/api/v2/animex/schedule?date=2026-05-22&timezone=UTC",
+        },
         episode: {
           servers: "/api/v2/animex/episode/servers?animeEpisodeId=21&ep=1",
           sources:
@@ -141,6 +167,16 @@ app.route("/api/v2/anixo/schedule", anixoScheduleRouter);
 app.route("/api/v2/animex/episode", animexEpisodeServersRouter);
 app.route("/api/v2/animex/episode/sources", animexEpisodeSourcesRouter);
 app.route("/api/v2/animex/proxy", animexProxyRouter);
+app.route("/api/v2/animex/home", animexHomeRouter);
+app.route("/api/v2/animex/azlist", animexAzlistRouter);
+app.route("/api/v2/animex/anime", animexAnimeRouter);
+app.route("/api/v2/animex/search", animexSearchRouter);
+app.route("/api/v2/animex/search/advanced", animexSearchAdvancedRouter);
+app.route("/api/v2/animex/search/suggestion", animexSearchSuggestionRouter);
+app.route("/api/v2/animex/genre", animexGenreRouter);
+app.route("/api/v2/animex/producer", animexProducerRouter);
+app.route("/api/v2/animex/category", animexCategoryRouter);
+app.route("/api/v2/animex/schedule", animexScheduleRouter);
 
 app.notFound((c) => {
   return c.json(
