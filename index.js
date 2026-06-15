@@ -17,6 +17,9 @@ import hianimeScheduleRouter from "./src/hianime/router/schedule.js";
 import hianimeEpisodeServersRouter from "./src/hianime/router/episode-servers.js";
 import anikuroEpisodeSourcesRouter from "./src/anikuro/router/streaming-server.js";
 import anikuroEpisodeServersRouter from "./src/anikuro/router/episode-servers.js";
+import anixoEpisodeSourcesRouter from "./src/anixo/router/streaming-server.js";
+import anixoEpisodeServersRouter from "./src/anixo/router/episode-servers.js";
+import anixoProxyRouter from "./src/anixo/router/proxy.js";
 
 const app = new Hono();
 
@@ -60,6 +63,13 @@ app.get("/", (c) => {
             "/api/v2/anikuro/episode/sources?animeEpisodeId=199221:1&server=anikoto&category=dub",
         },
       },
+      anixo: {
+        episode: {
+          servers: "/api/v2/anixo/episode/servers?animeEpisodeId=21&ep=1",
+          sources:
+            "/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub",
+        },
+      },
     },
   });
 });
@@ -79,6 +89,9 @@ app.route("/api/v2/hianime/episode", hianimeEpisodeServersRouter);
 app.route("/api/v2/hianime/episode/sources", hianimeEpisodeSourcesRouter);
 app.route("/api/v2/anikuro/episode", anikuroEpisodeServersRouter);
 app.route("/api/v2/anikuro/episode/sources", anikuroEpisodeSourcesRouter);
+app.route("/api/v2/anixo/episode", anixoEpisodeServersRouter);
+app.route("/api/v2/anixo/episode/sources", anixoEpisodeSourcesRouter);
+app.route("/api/v2/anixo/proxy", anixoProxyRouter);
 
 app.notFound((c) => {
   return c.json(
