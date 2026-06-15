@@ -20,6 +20,16 @@ import anikuroEpisodeServersRouter from "./src/anikuro/router/episode-servers.js
 import anixoEpisodeSourcesRouter from "./src/anixo/router/streaming-server.js";
 import anixoEpisodeServersRouter from "./src/anixo/router/episode-servers.js";
 import anixoProxyRouter from "./src/anixo/router/proxy.js";
+import anixoHomeRouter from "./src/anixo/router/home.js";
+import anixoAzlistRouter from "./src/anixo/router/azlist.js";
+import anixoAnimeRouter from "./src/anixo/router/anime.js";
+import anixoSearchRouter from "./src/anixo/router/search.js";
+import anixoSearchAdvancedRouter from "./src/anixo/router/search-advanced.js";
+import anixoSearchSuggestionRouter from "./src/anixo/router/search-suggestion.js";
+import anixoGenreRouter from "./src/anixo/router/genre.js";
+import anixoCategoryRouter from "./src/anixo/router/category.js";
+import anixoProducerRouter from "./src/anixo/router/producer.js";
+import anixoScheduleRouter from "./src/anixo/router/schedule.js";
 
 const app = new Hono();
 
@@ -64,6 +74,22 @@ app.get("/", (c) => {
         },
       },
       anixo: {
+        home: "/api/v2/anixo/home",
+        azlist: "/api/v2/anixo/azlist/A?page=1",
+        animeDetails: "/api/v2/anixo/anime/21",
+        animeEpisodes: "/api/v2/anixo/anime/21/episodes",
+        search: {
+          basic: "/api/v2/anixo/search?q=naruto&page=1",
+          advanced:
+            "/api/v2/anixo/search/advanced?q=naruto&type=tv&genres=action&page=1",
+          suggestion: "/api/v2/anixo/search/suggestion?q=naruto",
+        },
+        discover: {
+          producer: "/api/v2/anixo/producer/toei-animation?page=1",
+          genre: "/api/v2/anixo/genre/action?page=1",
+          category: "/api/v2/anixo/category/most-popular?page=1",
+          schedule: "/api/v2/anixo/schedule?date=2026-05-22&timezone=UTC",
+        },
         episode: {
           servers: "/api/v2/anixo/episode/servers?animeEpisodeId=21&ep=1",
           sources:
@@ -92,6 +118,16 @@ app.route("/api/v2/anikuro/episode/sources", anikuroEpisodeSourcesRouter);
 app.route("/api/v2/anixo/episode", anixoEpisodeServersRouter);
 app.route("/api/v2/anixo/episode/sources", anixoEpisodeSourcesRouter);
 app.route("/api/v2/anixo/proxy", anixoProxyRouter);
+app.route("/api/v2/anixo/home", anixoHomeRouter);
+app.route("/api/v2/anixo/azlist", anixoAzlistRouter);
+app.route("/api/v2/anixo/anime", anixoAnimeRouter);
+app.route("/api/v2/anixo/search", anixoSearchRouter);
+app.route("/api/v2/anixo/search/advanced", anixoSearchAdvancedRouter);
+app.route("/api/v2/anixo/search/suggestion", anixoSearchSuggestionRouter);
+app.route("/api/v2/anixo/genre", anixoGenreRouter);
+app.route("/api/v2/anixo/producer", anixoProducerRouter);
+app.route("/api/v2/anixo/category", anixoCategoryRouter);
+app.route("/api/v2/anixo/schedule", anixoScheduleRouter);
 
 app.notFound((c) => {
   return c.json(
