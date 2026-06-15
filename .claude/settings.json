@@ -10,7 +10,9 @@
       "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/servers?animeEpisodeId=21&ep=1\")",
       "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/servers?animeEpisodeId=one-piece-21-episode-1\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\)['data']; print\\('animeId:',d['animeId'],'episode:',d['episode'],'sub servers:',[s['server'] for s in d['servers']['sub']]\\)\")",
-      "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/sources?animeEpisodeId=one-piece-21-episode-1&server=megaplay-mal&category=dub\")"
+      "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/sources?animeEpisodeId=one-piece-21-episode-1&server=megaplay-mal&category=dub\")",
+      "Bash(grep -rohiE \"\\(const |let |,\\)[a-zA-Z0-9_]+=[\\\\`\\\\\"']https://\\(pahe|mapper\\)?\\\\.?nekostream\\\\.site[^\\\\`\\\\\"']*[\\\\`\\\\\"']\" .)",
+      "Bash(grep -rohiE \"providerId[=:][^,;&}]{0,30}|provider:[\\\\\"'][a-z]+[\\\\\"']\" .)"
     ]
   }
 }
