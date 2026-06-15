@@ -9,20 +9,20 @@
 
 <div align="center">
 
-```
+<pre>
 ███████╗██╗  ██╗██╗██████╗  █████╗ ██╗   ██╗██╗   ██╗██╗  ██╗██╗
 ██╔════╝██║  ██║██║██╔══██╗██╔══██╗╚██╗ ██╔╝██║   ██║██║ ██╔╝██║
 ███████╗███████║██║██████╔╝███████║ ╚████╔╝ ██║   ██║█████╔╝ ██║
 ╚════██║██╔══██║██║██╔══██╗██╔══██║  ╚██╔╝  ██║   ██║██╔═██╗ ██║
 ███████║██║  ██║██║██║  ██║██║  ██║   ██║   ╚██████╔╝██║  ██╗██║
 ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝
-```
+</pre>
 
 # 🔥 Shirayuki Anime API
 
 > **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
 
-*A RESTful API for scraping anime data from HiAnime and Anikuro. Features search, streaming sources, schedules, and more — all wrapped in a clean Hono interface.*
+*A RESTful API that unifies anime data across **HiAnime**, **Anixo**, **AnimeX**, and **Anikuro** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
 
 </div>
 
@@ -39,6 +39,8 @@
 | 📺 **Anime Details** | Full metadata, episodes, schedules |
 | 🎬 **Streaming Sources** | Episode servers and video sources |
 | 🗓️ **Schedules** | Daily airing schedules by date |
+| 🌐 **Multi-Provider** | HiAnime · Anixo · AnimeX · Anikuro |
+| 🔁 **HLS Proxy** | Ready-to-play proxied `.m3u8` streams |
 
 </div>
 
@@ -57,7 +59,7 @@ npm install
 # Start the server
 npm run start
 
-# Server runs at → http://localhost:3000/api/v2/hianime
+# Open the API explorer → http://localhost:3000
 ```
 
 ---
@@ -88,6 +90,48 @@ npm run start
 |--------|----------|-------------|
 | `GET` | `/api/v2/anikuro/episode/servers?animeEpisodeId=&ep=` | Get streaming servers (animeEpisodeId required) |
 | `GET` | `/api/v2/anikuro/episode/sources?animeEpisodeId=&ep=&server=&category=` | Get video sources (animeEpisodeId required) |
+
+### Anixo
+
+> AniList-backed listings · MegaPlay streaming (`megaplay`, `megaplay-mal`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v2/anixo/home` | Spotlight, trending, popular, seasonal |
+| `GET` | `/api/v2/anixo/azlist/:letter?page=1` | Full catalogue grid |
+| `GET` | `/api/v2/anixo/anime/:animeId` | Full anime details |
+| `GET` | `/api/v2/anixo/anime/:animeId/episodes` | Episode list |
+| `GET` | `/api/v2/anixo/search?q=&page=1` | Basic search |
+| `GET` | `/api/v2/anixo/search/advanced` | Advanced filters |
+| `GET` | `/api/v2/anixo/search/suggestion?q=` | Autocomplete |
+| `GET` | `/api/v2/anixo/producer/:producer?page=1` | Filter by studio |
+| `GET` | `/api/v2/anixo/genre/:genre?page=1` | Filter by genre |
+| `GET` | `/api/v2/anixo/category/:category?page=1` | Curated lists |
+| `GET` | `/api/v2/anixo/schedule?date=YYYY-MM-DD&timezone=UTC` | Daily schedule |
+| `GET` | `/api/v2/anixo/episode/servers?animeEpisodeId=&ep=` | Streaming servers |
+| `GET` | `/api/v2/anixo/episode/sources?animeEpisodeId=&ep=&server=megaplay&category=sub` | Video sources (m3u8) |
+| `GET` | `/api/v2/anixo/proxy?url=&ref=` | HLS playlist proxy |
+
+### AnimeX
+
+> animex.one catalog via its own GraphQL (~20.5k titles, 685 pages) · MegaPlay streaming
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v2/animex/home` | Spotlight, trending, popular, seasonal |
+| `GET` | `/api/v2/animex/azlist/:letter?page=1` | Full catalogue grid (685 pages) |
+| `GET` | `/api/v2/animex/anime/:animeId` | Full anime details |
+| `GET` | `/api/v2/animex/anime/:animeId/episodes` | Episode list |
+| `GET` | `/api/v2/animex/search?q=&page=1` | Basic search |
+| `GET` | `/api/v2/animex/search/advanced` | Advanced filters |
+| `GET` | `/api/v2/animex/search/suggestion?q=` | Autocomplete |
+| `GET` | `/api/v2/animex/producer/:producer?page=1` | Filter by studio |
+| `GET` | `/api/v2/animex/genre/:genre?page=1` | Filter by genre |
+| `GET` | `/api/v2/animex/category/:category?page=1` | Curated lists |
+| `GET` | `/api/v2/animex/schedule?date=YYYY-MM-DD&timezone=UTC` | Daily schedule |
+| `GET` | `/api/v2/animex/episode/servers?animeEpisodeId=&ep=` | Streaming servers |
+| `GET` | `/api/v2/animex/episode/sources?animeEpisodeId=&ep=&server=megaplay&category=sub` | Video sources (m3u8) |
+| `GET` | `/api/v2/animex/proxy?url=&ref=` | HLS playlist proxy |
 
 ---
 
@@ -126,6 +170,11 @@ curl "http://localhost:3000/api/v2/hianime/schedule?date=2026-05-22&timezone=UTC
 ### Get Episode Sources (Anikuro)
 ```bash
 curl "http://localhost:3000/api/v2/anikuro/episode/sources?animeEpisodeId=199221:1&ep=1&server=anikoto&category=dub"
+```
+
+### Get Episode Sources (AnimeX — MegaPlay m3u8)
+```bash
+curl "http://localhost:3000/api/v2/animex/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub"
 ```
 
 ---
@@ -167,10 +216,20 @@ Shirayuki-Anime-API/
 │   │   ├── controllers/        # Business logic
 │   │   ├── router/            # Route definitions
 │   │   └── scraper/           # Scraping utilities
-│   ├── anikuro/
-│   │   ├── controllers/        # Business logic
-│   │   ├── router/            # Route definitions
-│   │   └── scraper/           # Scraping utilities
+│   ├── anikuro/                # Streaming-only provider
+│   │   ├── controllers/
+│   │   ├── router/
+│   │   └── scraper/
+│   ├── anixo/                  # AniList listings + MegaPlay streaming
+│   │   ├── controllers/
+│   │   ├── router/
+│   │   └── scraper/
+│   ├── animex/                 # animex.one catalog + MegaPlay streaming
+│   │   ├── controllers/
+│   │   ├── router/
+│   │   └── scraper/
+│   ├── ui/
+│   │   └── landing.js          # HTML API explorer (served at /)
 │   ├── config/
 │   │   ├── env.js             # Environment validation
 │   │   └── errorHandler.js    # Error handling
@@ -193,6 +252,8 @@ Shirayuki-Anime-API/
 | `hd-1` | megacloud |
 | `hd-2` | vidsrc |
 | `hd-3` | mycloud |
+
+> **Anixo / AnimeX** stream via MegaPlay: `megaplay` (AniList route) and `megaplay-mal` (MAL route).
 
 ---
 
@@ -228,14 +289,14 @@ This project is licensed under the **ISC License** — free to use, modify, and 
 
 <div align="center">
 
-```
+<pre>
 ██████╗ ███████╗██╗   ██╗    ███████╗███╗   ██╗██████╗ 
 ██╔══██╗██╔════╝██║   ██║    ██╔════╝████╗  ██║██╔══██╗
 ██║  ██║█████╗  ██║   ██║    █████╗  ██╔██╗ ██║██║  ██║
 ██║  ██║██╔══╝  ╚██╗ ██╔╝    ██╔══╝  ██║╚██╗██║██║  ██║
 ██████╔╝███████╗ ╚████╔╝     ███████╗██║ ╚████║██████╔╝
 ╚═════╝ ╚══════╝  ╚═══╝      ╚══════╝╚═╝  ╚═══╝╚═════╝ 
-```
+</pre>
 
 *Built with ❤️ and lots of coffee*
 
