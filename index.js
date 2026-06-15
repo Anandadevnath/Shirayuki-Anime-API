@@ -30,6 +30,9 @@ import anixoGenreRouter from "./src/anixo/router/genre.js";
 import anixoCategoryRouter from "./src/anixo/router/category.js";
 import anixoProducerRouter from "./src/anixo/router/producer.js";
 import anixoScheduleRouter from "./src/anixo/router/schedule.js";
+import animexEpisodeSourcesRouter from "./src/animex/router/streaming-server.js";
+import animexEpisodeServersRouter from "./src/animex/router/episode-servers.js";
+import animexProxyRouter from "./src/animex/router/proxy.js";
 
 const app = new Hono();
 
@@ -96,6 +99,13 @@ app.get("/", (c) => {
             "/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub",
         },
       },
+      animex: {
+        episode: {
+          servers: "/api/v2/animex/episode/servers?animeEpisodeId=21&ep=1",
+          sources:
+            "/api/v2/animex/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub",
+        },
+      },
     },
   });
 });
@@ -128,6 +138,9 @@ app.route("/api/v2/anixo/genre", anixoGenreRouter);
 app.route("/api/v2/anixo/producer", anixoProducerRouter);
 app.route("/api/v2/anixo/category", anixoCategoryRouter);
 app.route("/api/v2/anixo/schedule", anixoScheduleRouter);
+app.route("/api/v2/animex/episode", animexEpisodeServersRouter);
+app.route("/api/v2/animex/episode/sources", animexEpisodeSourcesRouter);
+app.route("/api/v2/animex/proxy", animexProxyRouter);
 
 app.notFound((c) => {
   return c.json(

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -A \"Mozilla/5.0 \\(X11; Linux x86_64\\) AppleWebKit/537.36 Chrome/124.0 Safari/537.36\" \"https://animex.one/watch/one-piece-21-episode-1\")",
+      "Bash(curl -s -A \"Mozilla/5.0\" \"https://animex.one/watch/one-piece-21-episode-1\")",
+      "Bash(curl -s -A Mozilla/5.0 https://animex.one/_app/immutable/entry/app.DDs1AAto.js -o /tmp/ax_app.js)",
+      "Bash(curl -s -A Mozilla/5.0 https://animex.one/_app/immutable/entry/start.DdwHbApZ.js -o /tmp/ax_start.js)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import sys,json; print\\('animex' in json.load\\(sys.stdin\\)['endpoints']\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/servers?animeEpisodeId=21&ep=1\")",
+      "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/servers?animeEpisodeId=one-piece-21-episode-1\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\)['data']; print\\('animeId:',d['animeId'],'episode:',d['episode'],'sub servers:',[s['server'] for s in d['servers']['sub']]\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/v2/animex/episode/sources?animeEpisodeId=one-piece-21-episode-1&server=megaplay-mal&category=dub\")"
+    ]
+  }
+}
