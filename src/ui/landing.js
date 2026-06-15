@@ -91,12 +91,14 @@ const renderItem = (item) => {
     : `<a class="btn btn-try" href="${esc(item.path)}" target="_blank" rel="noopener">Try ↗</a>`;
   return `
     <article class="ep" data-search="${esc((item.label + ' ' + item.desc + ' ' + item.path).toLowerCase())}">
-      <div class="ep-head">
-        <span class="method">GET</span>
-        <h4 class="ep-title">${esc(item.label)}</h4>
+      <div class="ep-main">
+        <div class="ep-head">
+          <span class="method">GET</span>
+          <h4 class="ep-title">${esc(item.label)}</h4>
+          <p class="ep-desc">${esc(item.desc)}</p>
+        </div>
+        <code class="ep-path">${esc(item.path)}</code>
       </div>
-      <p class="ep-desc">${esc(item.desc)}</p>
-      <code class="ep-path">${esc(item.path)}</code>
       <div class="ep-actions">
         ${tryBtn}
         <button class="btn btn-copy" data-path="${esc(item.path)}">Copy</button>
@@ -209,7 +211,7 @@ a{color:inherit;text-decoration:none}
 .pill.active{color:#0a0b10;background:var(--accent);border-color:var(--accent)}
 
 /* Hero */
-.hero{padding:42px 0 26px}
+.hero{padding-top:42px;padding-bottom:26px}
 .hero h1{margin:0 0 8px;font-size:34px;font-weight:850;letter-spacing:-.5px}
 .hero p{margin:0;color:var(--muted);max-width:640px}
 .stats{display:flex;gap:14px;margin-top:24px;flex-wrap:wrap}
@@ -230,21 +232,25 @@ a{color:inherit;text-decoration:none}
   display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .group-count{font-size:11px;background:var(--card2);color:var(--muted);padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
 
-/* Endpoint cards */
-.ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:13px;align-items:stretch}
-.ep{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;
-  display:flex;flex-direction:column;gap:10px;transition:.16s}
-.ep:hover{border-color:var(--accent);transform:translateY(-2px);
-  box-shadow:0 8px 26px rgba(0,0,0,.35)}
-.ep-head{display:flex;align-items:center;gap:9px}
+/* Endpoint list */
+.ep-grid{display:flex;flex-direction:column;gap:9px}
+.ep{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:13px 16px;transition:.15s}
+.ep:hover{border-color:var(--accent);background:var(--card2)}
+.ep-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.ep-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
 .method{font-size:11px;font-weight:800;color:#34d399;border:1px solid #2a5a47;background:#0e1a16;
   padding:3px 7px;border-radius:6px;letter-spacing:.5px;line-height:1;flex:0 0 auto}
-.ep-title{margin:0;font-size:15px;font-weight:700;line-height:1.2}
-.ep-desc{margin:0;color:var(--muted);font-size:13px;min-height:38px}
+.ep-title{margin:0;font-size:15px;font-weight:700;line-height:1.2;flex:0 0 auto}
+.ep-desc{margin:0;color:var(--muted);font-size:13px;line-height:1.3}
 .ep-path{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#cdd2e6;
-  background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:10px 11px;
-  word-break:break-all;display:block}
-.ep-actions{display:flex;gap:8px;margin-top:auto;padding-top:2px}
+  background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;
+  word-break:break-all;align-self:flex-start;max-width:100%}
+.ep-actions{display:flex;gap:8px;flex:0 0 auto}
+@media(max-width:640px){
+  .ep{flex-direction:column;align-items:stretch}
+  .ep-actions{justify-content:flex-start}
+}
 .btn{display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;
   border-radius:9px;padding:7px 14px;line-height:1;cursor:pointer;font-family:inherit;
   border:1px solid var(--line);background:var(--card2);color:var(--text);transition:.15s}
@@ -258,7 +264,7 @@ a{color:inherit;text-decoration:none}
   background:#1b1f2c;border:1px solid var(--line);color:var(--text);padding:11px 18px;border-radius:11px;
   font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:50}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-footer{border-top:1px solid var(--line);padding:26px 0 50px;color:var(--muted);font-size:13px}
+footer{border-top:1px solid var(--line);padding-top:26px;padding-bottom:50px;color:var(--muted);font-size:13px}
 footer code{color:#cdd2e6;background:var(--bg2);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
 @media(max-width:620px){.hero h1{font-size:27px}.base{display:none}}
 </style>
