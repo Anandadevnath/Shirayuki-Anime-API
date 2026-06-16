@@ -1,10 +1,13 @@
 import {
-  MEGAPLAY_BASE_URL,
+  ANIMEX_BASE_URL,
+  DUB_PROVIDERS,
+  SUB_PROVIDERS,
+  fetchAnimexSources,
   normalizeCategory,
   normalizeServer,
   parseAnimeEpisodeRef,
-  pickServer,
-  resolveMegaplaySources,
+  providerLabel,
+  resolveSlugFromRef,
 } from './_shared.js';
 
 const extractM3u8 = (payload) => {
@@ -12,15 +15,16 @@ const extractM3u8 = (payload) => {
   if (!sources) return null;
 
   if (typeof sources === 'string') return sources;
-  if (Array.isArray(sources)) return sources.find((s) => s?.file)?.file || null;
-  return sources.file || null;
+  if (Array.isArray(sources)) return sources.find((s) => s?.url)?.url || null;
+  return sources.url || null;
 };
 
+// pp.animex.one tracks: { id, url, lang, label, kind, default }.
 const normalizeTracks = (tracks = []) =>
   (Array.isArray(tracks) ? tracks : [])
-    .filter((track) => track?.file && track.kind !== 'thumbnails')
+    .filter((track) => track?.url && track.kind !== 'thumbnails')
     .map((track, index) => ({
-      file: track.file,
+      file: track.url,
       label: track.label || 'English',
       kind: track.kind || 'captions',
       default: track.default ?? index === 0,
@@ -29,68 +33,54 @@ const normalizeTracks = (tracks = []) =>
 
 export const getAnimexEpisodeSources = async ({ animeEpisodeId, ep, server, category }) => {
   const ref = parseAnimeEpisodeRef(animeEpisodeId, ep);
-  if (!ref?.animeId) {
+  if (!ref) {
     throw new Error('animeEpisodeId query parameter is required');
   }
 
-  const { animeId, episode } = ref;
+  const slug = await resolveSlugFromRef(ref);
+  const { episode } = ref;
   const normalizedCategory = normalizeCategory(category);
-  const normalizedServer = normalizeServer(server);
-  const target = pickServer(normalizedServer);
+  const providerId = normalizeServer(server);
 
-  if (!target) {
-    throw new Error('Requested Animex server is unavailable');
+  const allowed = normalizedCategory === 'dub' ? DUB_PROVIDERS : SUB_PROVIDERS;
+  if (!allowed.includes(providerId)) {
+    throw new Error(
+      `Server "${providerId}" is not available for ${normalizedCategory}. Try: ${allowed.join(', ')}`,
+    );
   }
 
-  const { embedUrl, dataId, payload } = await resolveMegaplaySources({
-    route: target.route,
-    animeId,
-    episode,
-    category: normalizedCategory,
-  });
-
-  if (!dataId) {
-    throw new Error(`No stream id found for ${target.label} on this episode`);
-  }
+  const payload = await fetchAnimexSources(slug, episode, normalizedCategory, providerId);
 
   const m3u8 = extractM3u8(payload);
   if (!m3u8) {
     throw new Error(
-      `No ${normalizedCategory.toUpperCase()} sources available from ${target.label} for this episode`,
+      `No ${normalizedCategory.toUpperCase()} sources from ${providerLabel(providerId)} for this episode`,
     );
   }
 
   const tracks = normalizeTracks(payload?.tracks);
   const typeLabel = /\.m3u8(\?|$)/i.test(m3u8) ? 'm3u8' : 'mp4';
-  const referer = `${MEGAPLAY_BASE_URL}/`;
-
-  const intro =
-    payload?.intro && (payload.intro.start || payload.intro.end)
-      ? { start: payload.intro.start ?? 0, end: payload.intro.end ?? 0 }
-      : null;
-  const outro =
-    payload?.outro && (payload.outro.start || payload.outro.end)
-      ? { start: payload.outro.start ?? 0, end: payload.outro.end ?? 0 }
-      : null;
+  // animex sometimes pins a referer (e.g. megaplay.buzz) the CDN requires; pass it through.
+  const referer = payload?.headers?.Referer || payload?.headers?.referer || `${ANIMEX_BASE_URL}/`;
 
   return {
-    animeId: String(animeId),
+    animeId: slug,
+    anilistId: ref.anilistId ?? null,
     episode,
-    episodeSlug: `${animeId}:${episode}`,
-    sourcePage: embedUrl,
+    episodeSlug: `${slug}:${episode}`,
+    sourcePage: `${ANIMEX_BASE_URL}/watch/${slug}-episode-${episode}`,
     sources: [
       {
         m3u8,
         type: typeLabel,
         quality: 'auto',
         referer,
-        server: target.nameId,
+        server: providerId,
         category: normalizedCategory,
-        embed: embedUrl,
       },
     ],
     tracks,
-    intro,
-    outro,
+    intro: null,
+    outro: null,
   };
 };

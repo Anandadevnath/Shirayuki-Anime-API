@@ -1,55 +1,40 @@
 import {
   ANIMEX_BASE_URL,
-  WATCH_SERVERS,
-  buildEmbedUrl,
-  fetchEmbedDataId,
+  fetchAnimexServers,
   parseAnimeEpisodeRef,
+  providerLabel,
+  resolveSlugFromRef,
 } from './_shared.js';
 
-const checkServerAvailability = async (server, animeId, episode, category) => {
-  try {
-    const embedUrl = buildEmbedUrl(server.route, animeId, episode, category);
-    const dataId = await fetchEmbedDataId(embedUrl, `${ANIMEX_BASE_URL}/`);
-    return Boolean(dataId);
-  } catch {
-    return false;
-  }
-};
-
-const getServerAvailability = async (server, animeId, episode) => {
-  const [sub, dub] = await Promise.all([
-    checkServerAvailability(server, animeId, episode, 'sub'),
-    checkServerAvailability(server, animeId, episode, 'dub'),
-  ]);
-
-  return {
-    name: server.label,
-    nameId: server.nameId,
-    server: server.id,
-    available: { sub, dub },
-  };
-};
+// pp.animex.one returns { subProviders:[{id,default,tip}], dubProviders:[...] }.
+const mapProvider = (provider, category) => ({
+  name: providerLabel(provider.id),
+  nameId: provider.id,
+  server: provider.id,
+  category,
+  default: Boolean(provider.default),
+  tip: provider.tip || null,
+});
 
 export const getAnimexEpisodeServers = async ({ animeEpisodeId, ep } = {}) => {
   const ref = parseAnimeEpisodeRef(animeEpisodeId, ep);
-  if (!ref?.animeId) {
+  if (!ref) {
     throw new Error('animeEpisodeId query parameter is required');
   }
 
-  const { animeId, episode } = ref;
+  const slug = await resolveSlugFromRef(ref);
+  const { episode } = ref;
 
-  const servers = await Promise.all(
-    WATCH_SERVERS.map((server) => getServerAvailability(server, animeId, episode)),
-  );
+  const payload = await fetchAnimexServers(slug, episode);
+  const sub = (payload?.subProviders || []).map((p) => mapProvider(p, 'sub'));
+  const dub = (payload?.dubProviders || []).map((p) => mapProvider(p, 'dub'));
 
   return {
-    source: `${ANIMEX_BASE_URL}/watch/${animeId}-episode-${episode}`,
-    animeId: String(animeId),
+    source: `${ANIMEX_BASE_URL}/watch/${slug}-episode-${episode}`,
+    animeId: slug,
+    anilistId: ref.anilistId ?? null,
     episode,
-    servers: {
-      sub: servers.filter((server) => server.available.sub),
-      dub: servers.filter((server) => server.available.dub),
-    },
-    providers: servers,
+    servers: { sub, dub },
+    providers: [...sub, ...dub],
   };
 };

@@ -1,11 +1,22 @@
 import { axios } from '../../utils/scrapper-deps.js';
-import { DEFAULT_UA, MEGAPLAY_BASE_URL } from './_shared.js';
+import { ANIMEX_BASE_URL, DEFAULT_UA } from './_shared.js';
 
-const DEFAULT_REFERER = `${MEGAPLAY_BASE_URL}/`;
+const DEFAULT_REFERER = `${ANIMEX_BASE_URL}/`;
 
 // Hosts we're willing to proxy, to avoid being turned into an open relay.
-// MegaPlay serves animex's streams from the same CDNs as anixo.
-const ALLOWED_HOST_SUFFIXES = ['streamzone1.site', 'lostproject.club'];
+// These are the CDNs animex's pp.animex.one /sources currently serves from:
+//   playlists -> hawk.24stream.xyz (hard sub), cdn.mewstream.buzz (soft sub)
+//   segments  -> *.ibyteimg.com
+//   subtitles -> *.lostproject.club, cdn.anizara.store
+const ALLOWED_HOST_SUFFIXES = [
+  '24stream.xyz',
+  'mewstream.buzz',
+  'ibyteimg.com',
+  'lostproject.club',
+  'anizara.store',
+  'megaplay.buzz',
+  'streamzone1.site',
+];
 
 const isAllowedHost = (urlStr) => {
   try {
@@ -68,6 +79,12 @@ export const proxyStream = async ({ url, referer, basePath }) => {
   }
 
   const upstreamReferer = referer || DEFAULT_REFERER;
+  let upstreamOrigin;
+  try {
+    upstreamOrigin = new URL(upstreamReferer).origin;
+  } catch {
+    upstreamOrigin = undefined;
+  }
 
   const upstream = await axios.get(url, {
     proxy: false,
@@ -79,7 +96,7 @@ export const proxyStream = async ({ url, referer, basePath }) => {
       'User-Agent': DEFAULT_UA,
       Accept: '*/*',
       Referer: upstreamReferer,
-      Origin: MEGAPLAY_BASE_URL,
+      ...(upstreamOrigin ? { Origin: upstreamOrigin } : {}),
     },
   });
 
