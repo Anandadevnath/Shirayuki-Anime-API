@@ -6,7 +6,6 @@ const KNOWN_CATEGORIES = new Set([
   'top-airing',
   'recently-updated',
   'recently-added',
-  'top-upcoming',
   'latest-completed',
   'subbed-anime',
   'dubbed-anime',

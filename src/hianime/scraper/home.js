@@ -69,46 +69,65 @@ const extractEstimatedSchedule = ($) => {
     .filter((item) => item.id);
 };
 
-const extractTop10 = ($) => {
-  const result = { day: [], week: [], month: [] };
+const parseTop10Items = ($, scope) => {
+  const $root = scope ? $(scope) : $.root();
+  return $root
+    .find("li.item-top")
+    .map((_, el) => {
+      const $li = $(el);
+      const $link = $li.find(".film-name a").first();
+      const href = $link.attr("href")?.trim() || null;
+      const $img = $li.find(".film-poster img").first();
+      const subText = $li.find(".tick-item.tick-sub").first().text().trim();
+      const dubText = $li.find(".tick-item.tick-dub").first().text().trim();
 
-  const tabSelectors = [
-    ["day", "#top-viewed-day"],
-    ["week", "#top-viewed-week"],
-    ["month", "#top-viewed-month"],
-  ];
+      return {
+        rank: parseNumber($li.find(".film-number span").first().text()),
+        id: getAnimeId(href),
+        title: $link.text().trim() || null,
+        jname: $link.attr("data-jp")?.trim() || null,
+        ename: $link.attr("data-en")?.trim() || null,
+        href,
+        url: toAbsoluteUrl(href),
+        poster: extractPosterFromImg($img),
+        episodes: {
+          sub: parseNumber(subText),
+          dub: parseNumber(dubText),
+        },
+      };
+    })
+    .get()
+    .filter((item) => item.id);
+};
 
-  for (const [key, selector] of tabSelectors) {
-    result[key] = $(selector)
-      .find("li.item-top")
-      .map((_, el) => {
-        const $li = $(el);
-        const $link = $li.find(".film-name a").first();
-        const href = $link.attr("href")?.trim() || null;
-        const $img = $li.find(".film-poster img").first();
-        const subText = $li.find(".tick-item.tick-sub").first().text().trim();
-        const dubText = $li.find(".tick-item.tick-dub").first().text().trim();
+// hianime.ad only renders the "day" tab in the home HTML; "week" and "month"
+// are loaded on demand via GET /ajax/top-view?id=2|3 (see loadTopViews in function.js).
+const TOP10_TAB_IDS = { week: 2, month: 3 };
 
-        return {
-          rank: parseNumber($li.find(".film-number span").first().text()),
-          id: getAnimeId(href),
-          title: $link.text().trim() || null,
-          jname: $link.attr("data-jp")?.trim() || null,
-          ename: $link.attr("data-en")?.trim() || null,
-          href,
-          url: toAbsoluteUrl(href),
-          poster: extractPosterFromImg($img),
-          episodes: {
-            sub: parseNumber(subText),
-            dub: parseNumber(dubText),
-          },
-        };
-      })
-      .get()
-      .filter((item) => item.id);
+const fetchTop10Tab = async (tab) => {
+  try {
+    const { $ } = await fetchPage("/ajax/top-view", {
+      searchParams: { id: TOP10_TAB_IDS[tab] },
+      referer: "https://hianime.ad/home",
+      xhr: true,
+    });
+    return parseTop10Items($);
+  } catch {
+    return [];
   }
+};
 
-  return result;
+const extractTop10 = async ($) => {
+  const [week, month] = await Promise.all([
+    fetchTop10Tab("week"),
+    fetchTop10Tab("month"),
+  ]);
+
+  return {
+    day: parseTop10Items($, "#top-viewed-day"),
+    week,
+    month,
+  };
 };
 
 const extractGenres = ($) => {
@@ -255,13 +274,11 @@ const extractMostPopular = ($) => {
 const extractQuickLists = ($) => {
   const result = {
     newReleases: [],
-    upcoming: [],
     completed: [],
   };
 
   const sectionTitles = {
     "new releases": "newReleases",
-    upcoming: "upcoming",
     completed: "completed",
   };
 
@@ -320,6 +337,8 @@ export const getHianimeHomePage = async () => {
     referer: "https://hianime.ad/",
   });
 
+  const top10 = await extractTop10($);
+
   return {
     source: url,
     spotlight: extractSpotlight($),
@@ -329,7 +348,7 @@ export const getHianimeHomePage = async () => {
     quickLists: extractQuickLists($),
     latestEpisodes: extractLatestEpisodes($),
     estimatedSchedule: extractEstimatedSchedule($),
-    top10: extractTop10($),
+    top10,
     genres: extractGenres($),
   };
 };

@@ -8,6 +8,7 @@ import hianimeHomeRouter from "./src/hianime/router/home.js";
 import hianimeAzlistRouter from "./src/hianime/router/azlist.js";
 import hianimeAnimeRouter from "./src/hianime/router/anime.js";
 import hianimeSearchRouter from "./src/hianime/router/search.js";
+import hianimeSeasonsRouter from "./src/hianime/router/seasons.js";
 import hianimeSearchAdvancedRouter from "./src/hianime/router/search-advanced.js";
 import hianimeSearchSuggestionRouter from "./src/hianime/router/search-suggestion.js";
 import hianimeGenreRouter from "./src/hianime/router/genre.js";
@@ -62,6 +63,7 @@ app.get("/endpoints.json", (c) =>
 app.route("/api/v2/hianime/home", hianimeHomeRouter);
 app.route("/api/v2/hianime/azlist", hianimeAzlistRouter);
 app.route("/api/v2/hianime/anime", hianimeAnimeRouter);
+app.route("/api/v2/hianime/seasons", hianimeSeasonsRouter);
 app.route("/api/v2/hianime/search", hianimeSearchRouter);
 app.route("/api/v2/hianime/search/advanced", hianimeSearchAdvancedRouter);
 app.route("/api/v2/hianime/search/suggestion", hianimeSearchSuggestionRouter);

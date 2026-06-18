@@ -2,8 +2,21 @@
 // single source of truth — it renders the HTML and also backs /endpoints.json.
 
 // Build the standard provider surface (listings + search + discover + streaming).
-const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) => {
+const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy, seasons }) => {
   const b = `/api/v2/${id}`;
+  const listings = [
+    { label: 'Home', path: `${b}/home`, desc: 'Spotlight, trending, popular, top-airing & seasonal rows.' },
+    { label: 'A–Z list', path: `${b}/azlist/A?page=1`, desc: 'Full catalogue grid, paginated.' },
+    { label: 'Anime details', path: `${b}/anime/${anime}`, desc: 'Synopsis, score, studios, characters, relations.' },
+    { label: 'Episodes', path: `${b}/anime/${anime}/episodes`, desc: 'Episode list with titles, fillers & air dates.' },
+  ];
+  if (seasons) {
+    listings.push({
+      label: 'All seasons',
+      path: `${b}/seasons/${anime}`,
+      desc: 'All seasons/parts/movies of a franchise, ordered serially.',
+    });
+  }
   return {
     id,
     name,
@@ -12,12 +25,7 @@ const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) 
     groups: [
       {
         title: 'Listings',
-        items: [
-          { label: 'Home', path: `${b}/home`, desc: 'Spotlight, trending, popular, top-airing & seasonal rows.' },
-          { label: 'A–Z list', path: `${b}/azlist/A?page=1`, desc: 'Full catalogue grid, paginated.' },
-          { label: 'Anime details', path: `${b}/anime/${anime}`, desc: 'Synopsis, score, studios, characters, relations.' },
-          { label: 'Episodes', path: `${b}/anime/${anime}/episodes`, desc: 'Episode list with titles, fillers & air dates.' },
-        ],
+        items: listings,
       },
       {
         title: 'Search',
@@ -54,7 +62,7 @@ export const API_CATALOG = {
   name: 'Shirayuki Anime API',
   tagline: 'A unified anime API across multiple providers — listings, search, metadata & HLS streaming.',
   providers: [
-    fullProvider({ id: 'hianime', name: 'HiAnime', accent: '#8b8cf7', source: 'HiAnime scrape', anime: 'one-piece', epId: 'one-piece', server: 'hd-1', proxy: false }),
+    fullProvider({ id: 'hianime', name: 'HiAnime', accent: '#8b8cf7', source: 'HiAnime scrape', anime: 'one-piece', epId: 'one-piece', server: 'hd-1', proxy: false, seasons: true }),
     fullProvider({ id: 'anixo', name: 'Anixo', accent: '#f472b6', source: 'AniList + MegaPlay', anime: '21', epId: '21', server: 'megaplay', proxy: true }),
     fullProvider({ id: 'animex', name: 'AnimeX', accent: '#fbbf24', source: 'animex.one + MegaPlay', anime: '21', epId: '21', server: 'megaplay', proxy: true }),
     {

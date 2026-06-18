@@ -4,9 +4,56 @@ import {
   parseNumber,
   toAbsoluteUrl,
   getAnimeId,
+  extractPosterFromImg,
 } from './_shared.js';
+import { getHianimeSeasons } from './seasons.js';
 
 const textOf = ($el) => $el?.text()?.trim() || null;
+
+const extractTrending = ($) => {
+  const $section = $('.cat-heading')
+    .filter((_, el) => $(el).text().trim().toLowerCase() === 'trending')
+    .first()
+    .closest('section, .block_area');
+
+  return $section
+    .find('.cbox-list li, ul li')
+    .map((_, el) => {
+      const $li = $(el);
+      const $link = $li.find('.film-name a').first();
+      const href = $link.attr('href')?.trim() || null;
+      if (!href) return null;
+      const $img = $li.find('.film-poster img').first();
+      const subText = $li.find('.tick-item.tick-sub').first().text().trim();
+      const dubText = $li.find('.tick-item.tick-dub').first().text().trim();
+      const type =
+        $li
+          .find('.fd-infor .tick')
+          .clone()
+          .children()
+          .remove()
+          .end()
+          .text()
+          .trim() || null;
+
+      return {
+        id: getAnimeId(href),
+        title: textOf($link),
+        jname: $link.attr('data-jp')?.trim() || null,
+        ename: $link.attr('data-en')?.trim() || null,
+        href,
+        url: toAbsoluteUrl(href),
+        poster: extractPosterFromImg($img),
+        type,
+        episodes: {
+          sub: parseNumber(subText),
+          dub: parseNumber(dubText),
+        },
+      };
+    })
+    .get()
+    .filter((item) => item && item.id);
+};
 
 const parseInfoBlock = ($) => {
   const info = {};
@@ -79,6 +126,10 @@ export const getHianimeAnimeDetails = async ({ animeId } = {}) => {
 
   const info = parseInfoBlock($);
 
+  const seasons = await getHianimeSeasons({ title, animeId: slug, maxPages: 1 })
+    .then((res) => res.seasons)
+    .catch(() => []);
+
   const recommended = $('h2.cat-heading')
     .filter((_, el) => $(el).text().trim().toLowerCase() === 'recommended for you')
     .first()
@@ -109,5 +160,7 @@ export const getHianimeAnimeDetails = async ({ animeId } = {}) => {
       url: watchUrl,
     },
     recommended,
+    trending: extractTrending($),
+    seasons,
   };
 };
