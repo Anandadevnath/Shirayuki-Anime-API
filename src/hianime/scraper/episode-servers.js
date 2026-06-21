@@ -1,12 +1,11 @@
 import { fetchPage } from './_shared.js';
 
-const CATEGORY_TAB = { sub: 'tab_1', dub: 'tab_2', hsub: 'tab_0' };
-
 const parseServerListForCategory = ($, category) => {
+  // The block is already scoped to the category via data-id; the per-server
+  // data-tab is only a positional index (tab_0 = first category present, etc.)
+  // and must NOT be used to filter — its numbering varies per anime.
   const block = $(`.player-servers .ps_-block[data-id="${category}"]`).first();
   if (!block.length) return [];
-
-  const tab = CATEGORY_TAB[category] || null;
 
   return block
     .find('a.server-video')
@@ -23,7 +22,7 @@ const parseServerListForCategory = ($, category) => {
       };
     })
     .get()
-    .filter((s) => s.embed && (!tab || s.tab === tab));
+    .filter((s) => s.embed);
 };
 
 const parseAnimeEpisodeId = (animeEpisodeId) => {
