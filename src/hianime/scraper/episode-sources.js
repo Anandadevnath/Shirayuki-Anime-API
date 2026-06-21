@@ -6,8 +6,6 @@ const HIANIME_BASE_URL = 'https://hianime.ad';
 const DEFAULT_UA =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-const CATEGORY_TAB = { sub: 'tab_1', dub: 'tab_2', hsub: 'tab_0' };
-
 const normalizeAnimeId = (animeEpisodeId) => {
   if (!animeEpisodeId) return null;
 
@@ -55,10 +53,11 @@ const pageHeaders = (referer) => ({
 });
 
 const parseServerList = ($, category) => {
+  // The block is already scoped to the category via data-id; the per-server
+  // data-tab is only a positional index that varies per anime, so it must NOT
+  // be used to filter servers.
   const block = $(`.player-servers .ps_-block[data-id="${category}"]`).first();
   if (!block.length) return [];
-
-  const tab = CATEGORY_TAB[category] || null;
 
   return block
     .find('a.server-video')
@@ -75,7 +74,7 @@ const parseServerList = ($, category) => {
       };
     })
     .get()
-    .filter((s) => s.embed && (!tab || s.tab === tab));
+    .filter((s) => s.embed);
 };
 
 const pickServer = (servers, requestedServer) => {
@@ -180,6 +179,88 @@ async function getBrowser() {
   return browserInstance;
 }
 
+const extractFirstM3u8 = (text) => {
+  if (!text || typeof text !== 'string') return null;
+
+  const match = text.match(/https?:\/\/[^\s"'<>\\]+\.m3u8(?:\?[^\s"'<>\\]*)?/i);
+  return match ? match[0] : null;
+};
+
+const tryExtractFromResponse = (payload) => {
+  if (!payload) return null;
+
+  if (typeof payload === 'string') {
+    return extractFirstM3u8(payload);
+  }
+
+  if (typeof payload === 'object') {
+    const direct =
+      payload?.file ||
+      payload?.url ||
+      payload?.source ||
+      payload?.src ||
+      payload?.m3u8 ||
+      null;
+
+    if (typeof direct === 'string' && /\.m3u8(\?|$)/i.test(direct)) {
+      return direct;
+    }
+
+    if (Array.isArray(payload?.sources)) {
+      const fromSources = payload.sources.find(
+        (s) =>
+          (typeof s?.file === 'string' && /\.m3u8(\?|$)/i.test(s.file)) ||
+          (typeof s?.url === 'string' && /\.m3u8(\?|$)/i.test(s.url)) ||
+          (typeof s?.src === 'string' && /\.m3u8(\?|$)/i.test(s.src))
+      );
+
+      if (fromSources?.file) return fromSources.file;
+      if (fromSources?.url) return fromSources.url;
+      if (fromSources?.src) return fromSources.src;
+    }
+  }
+
+  return null;
+};
+
+// Most embed hosts (vibeplayer, bibiemb, ...) inline the m3u8 directly in the
+// page HTML/JS, so a plain fetch + regex resolves them without a headless
+// browser. This works in every environment and is far faster than Puppeteer.
+const lightweightResolveM3u8 = async (watchUrl, embedUrl) => {
+  const headers = {
+    'User-Agent': DEFAULT_UA,
+    Accept: 'text/html,application/json,application/javascript,*/*',
+    Referer: watchUrl,
+    Origin: HIANIME_BASE_URL,
+  };
+
+  // 1) Plain axios fetch (handles the common inline-source hosts).
+  try {
+    const res = await axios.get(embedUrl, { proxy: false, timeout: 20000, headers });
+    const extracted = tryExtractFromResponse(res?.data);
+    if (extracted) return extracted;
+  } catch (error) {
+    console.log('[resolveEmbedM3u8] axios extraction failed:', error.message);
+  }
+
+  // 2) cloudscraper fallback for hosts behind a Cloudflare challenge.
+  try {
+    const res = await cloudscraper({
+      url: embedUrl,
+      method: 'GET',
+      headers,
+      timeout: 20000,
+      challengeTimeout: 20000,
+    });
+    const extracted = tryExtractFromResponse(res);
+    if (extracted) return extracted;
+  } catch (error) {
+    console.log('[resolveEmbedM3u8] cloudscraper extraction failed:', error.message);
+  }
+
+  return null;
+};
+
 async function resolveEmbedM3u8(watchUrl, embedUrl) {
   if (!embedUrl) return null;
 
@@ -188,94 +269,13 @@ async function resolveEmbedM3u8(watchUrl, embedUrl) {
     return embedUrl;
   }
 
-  if (isServerless) {
-    console.log('[resolveEmbedM3u8] In serverless environment, attempting lightweight extraction');
+  // Try the lightweight HTML/JS scrape first — resolves most hosts (incl.
+  // HD-1/HD-2) in every environment without spinning up Chromium.
+  const lightweight = await lightweightResolveM3u8(watchUrl, embedUrl);
+  if (lightweight) return lightweight;
 
-    // Vercel free tier cannot reliably run Chromium/Puppeteer for this route,
-    // so attempt to resolve m3u8 directly from embed HTML/script payloads.
-    const extractFirstM3u8 = (text) => {
-      if (!text || typeof text !== 'string') return null;
-
-      const match = text.match(/https?:\/\/[^\s"'<>]+\.m3u8(?:\?[^\s"'<>]*)?/i);
-      return match ? match[0] : null;
-    };
-
-    const tryExtractFromResponse = (payload) => {
-      if (!payload) return null;
-
-      if (typeof payload === 'string') {
-        return extractFirstM3u8(payload);
-      }
-
-      if (typeof payload === 'object') {
-        const direct =
-          payload?.file ||
-          payload?.url ||
-          payload?.source ||
-          payload?.src ||
-          payload?.m3u8 ||
-          null;
-
-        if (typeof direct === 'string' && /\.m3u8(\?|$)/i.test(direct)) {
-          return direct;
-        }
-
-        if (Array.isArray(payload?.sources)) {
-          const fromSources = payload.sources.find(
-            (s) =>
-              (typeof s?.file === 'string' && /\.m3u8(\?|$)/i.test(s.file)) ||
-              (typeof s?.url === 'string' && /\.m3u8(\?|$)/i.test(s.url)) ||
-              (typeof s?.src === 'string' && /\.m3u8(\?|$)/i.test(s.src))
-          );
-
-          if (fromSources?.file) return fromSources.file;
-          if (fromSources?.url) return fromSources.url;
-          if (fromSources?.src) return fromSources.src;
-        }
-      }
-
-      return null;
-    };
-
-    const headers = {
-      'User-Agent': DEFAULT_UA,
-      Accept: 'text/html,application/json,application/javascript,*/*',
-      Referer: watchUrl,
-      Origin: HIANIME_BASE_URL,
-    };
-
-    // 1) Try cloudscraper first (better chance to bypass CF checks).
-    try {
-      const res = await cloudscraper({
-        url: embedUrl,
-        method: 'GET',
-        headers,
-        timeout: 20000,
-        challengeTimeout: 20000,
-      });
-
-      const extracted = tryExtractFromResponse(res);
-      if (extracted) return extracted;
-    } catch (error) {
-      console.log('[resolveEmbedM3u8] cloudscraper extraction failed:', error.message);
-    }
-
-    // 2) Fallback to axios and parse returned HTML/JSON for any m3u8 links.
-    try {
-      const res = await axios.get(embedUrl, {
-        proxy: false,
-        timeout: 20000,
-        headers,
-      });
-
-      const extracted = tryExtractFromResponse(res?.data);
-      if (extracted) return extracted;
-    } catch (error) {
-      console.log('[resolveEmbedM3u8] axios extraction failed:', error.message);
-    }
-
-    return null;
-  }
+  // Serverless can't reliably run Chromium/Puppeteer; nothing more to try.
+  if (isServerless) return null;
 
   const timeoutMs = 30000;
   const navigationTimeoutMs = 45000;
