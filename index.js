@@ -44,6 +44,14 @@ import animexGenreRouter from "./src/animex/router/genre.js";
 import animexCategoryRouter from "./src/animex/router/category.js";
 import animexProducerRouter from "./src/animex/router/producer.js";
 import animexScheduleRouter from "./src/animex/router/schedule.js";
+import nyaaHomeRouter from "./src/nyaa/router/home.js";
+import nyaaSearchRouter from "./src/nyaa/router/search.js";
+import nyaaSearchSuggestionRouter from "./src/nyaa/router/search-suggestion.js";
+import nyaaAnimeRouter from "./src/nyaa/router/anime.js";
+import nyaaCategoryRouter from "./src/nyaa/router/category.js";
+import nyaaEpisodeServersRouter from "./src/nyaa/router/episode-servers.js";
+import nyaaEpisodeSourcesRouter from "./src/nyaa/router/episode-sources.js";
+import nyaaStreamRouter from "./src/nyaa/router/stream.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 
 const app = new Hono();
@@ -101,6 +109,14 @@ app.route("/api/v2/animex/genre", animexGenreRouter);
 app.route("/api/v2/animex/producer", animexProducerRouter);
 app.route("/api/v2/animex/category", animexCategoryRouter);
 app.route("/api/v2/animex/schedule", animexScheduleRouter);
+app.route("/api/v2/nyaa/home", nyaaHomeRouter);
+app.route("/api/v2/nyaa/search", nyaaSearchRouter);
+app.route("/api/v2/nyaa/search/suggestion", nyaaSearchSuggestionRouter);
+app.route("/api/v2/nyaa/anime", nyaaAnimeRouter);
+app.route("/api/v2/nyaa/category", nyaaCategoryRouter);
+app.route("/api/v2/nyaa/episode", nyaaEpisodeServersRouter);
+app.route("/api/v2/nyaa/episode/sources", nyaaEpisodeSourcesRouter);
+app.route("/api/v2/nyaa/stream", nyaaStreamRouter);
 
 app.notFound((c) => {
   return c.json(

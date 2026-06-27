@@ -80,6 +80,41 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'nyaa',
+      name: 'Nyaa.si',
+      accent: '#3582F7',
+      source: 'nyaa.si (torrent index — returns magnet/.torrent, not m3u8)',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/nyaa/home', desc: 'Latest uploads across English-translated + Anime categories.' },
+            { label: 'Categories list', path: '/api/v2/nyaa/category/list', desc: 'All Nyaa categories with codes & links.' },
+            { label: 'Category browse', path: '/api/v2/nyaa/category?category=1_2&page=1', desc: 'Browse a category (e.g. 1_2 = Anime English-translated).' },
+            { label: 'Torrent details', path: '/api/v2/nyaa/anime/2123254', desc: 'Metadata, magnet, info hash, file list for a torrent.' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/nyaa/search?q=naruto&page=1', desc: 'Search by keyword with category / filter / sort.' },
+            { label: 'Suggestions', path: '/api/v2/nyaa/search/suggestion?q=naruto', desc: 'Top titles returned for a keyword.' },
+          ],
+        },
+        {
+          title: 'Torrents (hand off to WebTorrent client)',
+          items: [
+            { label: 'Episode files', path: '/api/v2/nyaa/episode/servers?torrentId=2123254', desc: 'List of video files in the torrent (treated as selectable "servers").' },
+            { label: 'Episode sources', path: '/api/v2/nyaa/episode/sources?torrentId=2123254&ep=1', desc: 'Magnet + .torrent URL + info hash for the requested episode file. NOT an m3u8 — feed into WebTorrent/Transmission/etc.' },
+            { label: 'Stream info', path: '/api/v2/nyaa/stream?torrentId=2123254&ep=1', desc: 'Resolves the magnet via in-process WebTorrent client and returns a playable http-range stream URL. Drop the URL into any HTML5 <video>.' },
+            { label: 'Stream info (transcoded)', path: '/api/v2/nyaa/stream?torrentId=2123254&ep=1&transcode=1', desc: 'Same as above but the returned URL streams through ffmpeg (H.264/AAC fragmented MP4) — use this if the raw file uses HEVC/AV1 and your browser can\'t decode it.' },
+            { label: 'Stream file', path: '/api/v2/nyaa/stream/file?hash=...&file=0', desc: 'Raw byte-range stream for the resolved file. Used internally by the stream URL above.' },
+            { label: 'Stream file (transcoded)', path: '/api/v2/nyaa/stream/file?hash=...&file=0&transcode=1', desc: 'ffmpeg-transcoded H.264/AAC fragmented MP4. Slower to start, ~1 CPU/stream, but plays in any browser.' },
+          ],
+        },
+      ],
+    },
   ],
 };
 
