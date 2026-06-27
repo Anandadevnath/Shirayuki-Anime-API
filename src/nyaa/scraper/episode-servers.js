@@ -3,8 +3,12 @@ import { fetchViewPage, walkFileTree, extractEpisodeFromName, VIDEO_EXTENSIONS, 
 const textOf = ($el) => $el?.text()?.trim().replace(/\s+/g, ' ') || null;
 
 export const getNyaaEpisodeServers = async ({ torrentId } = {}) => {
-  const { url, $ } = await fetchViewPage(torrentId, `${NYAA_BASE_URL}/`);
   const id = String(torrentId || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!/^\d+$/.test(id)) {
+    throw new Error('torrentId must be a numeric Nyaa torrent id');
+  }
+
+  const { url, $ } = await fetchViewPage(id, `${NYAA_BASE_URL}/`);
 
   const title = textOf($('.panel-title').first());
   if (!title) {
@@ -17,28 +21,31 @@ export const getNyaaEpisodeServers = async ({ torrentId } = {}) => {
   const servers = files
     .filter((f) => f.type === 'file' && VIDEO_EXTENSIONS.test(f.name))
     .map((file, index) => {
-      const idSafe = (file.name || `file-${index + 1}`)
+      const nameId = (file.name || `file-${index + 1}`)
         .replace(/\.[^.]+$/, '')
         .replace(/[^a-z0-9]+/gi, '-')
         .replace(/^-+|-+$/g, '')
-        .toLowerCase();
+        .toLowerCase() || `file-${index + 1}`;
       return {
+        index: index + 1,
         name: file.name,
-        nameId: idSafe || `file-${index + 1}`,
+        nameId,
         episode: extractEpisodeFromName(file.name),
-        path: file.path,
         size: file.size,
         sizeBytes: file.sizeBytes,
-        index: index + 1,
       };
     });
 
+  // Hianime-style: episode/servers returns { animeId, episode, servers: { sub, dub, hsub } }.
+  // Nyaa doesn't have category blocks; collapse the whole video file list into `sub`
+  // (torrents don't carry an inherent audio-track flag — the player picks via /sources).
   return {
     source: url,
     torrentId: id,
     title,
-    servers,
-    fileCount: files.length,
+    servers: {
+      sub: servers,
+    },
     videoFileCount: servers.length,
   };
 };

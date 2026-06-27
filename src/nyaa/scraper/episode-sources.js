@@ -99,6 +99,11 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
 
   const magnetInfo = parseMagnet(magnetHref);
   const resolvedInfoHash = (magnetInfo?.infoHash || infoHashText || '').toLowerCase();
+  const magnetTrackers = Array.isArray(magnetInfo?.trackers) ? magnetInfo.trackers : [];
+  // The magnet URL/trackers are intentionally not surfaced in the response,
+  // but the parsed infoHash is still required to resolve WebTorrent state.
+  void magnetHref;
+  void magnetInfo;
 
   // fileIndex for the stream URL must match WebTorrent's torrent.files order,
   // which differs from walkFileTree. Resolve via the torrent client when
@@ -114,7 +119,7 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
     } else {
       try {
         const buf = await fetchTorrentFileBuffer(id);
-        const t = await torrentClient.addTorrentFile(buf, resolvedInfoHash);
+        const t = await torrentClient.addTorrentFile(buf, resolvedInfoHash, { trackers: magnetTrackers });
         wtFile = t.files.find((f) => f.name === episodeFile.name) || null;
         fileIndex = wtFile ? t.files.indexOf(wtFile) : -1;
       } catch {
@@ -194,9 +199,6 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
       completed: parseNumber(completedText) || 0,
       infoHash: infoHashText,
       torrentUrl: torrentHref ? toAbsoluteUrl(torrentHref) : null,
-      magnetUrl: magnetHref,
-      magnet: magnetInfo,
-      trackers: magnetInfo?.trackers || [],
     },
     sources: [
       {
@@ -208,7 +210,6 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
         size: episodeFileSize,
         sizeBytes: episodeFileBytes,
         torrentUrl: torrentHref ? toAbsoluteUrl(torrentHref) : null,
-        magnetUrl: magnetHref,
         infoHash: resolvedInfoHash || infoHashText,
         // HiAnime-style fields so the UI can be provider-agnostic.
         category: normalizedCategory,

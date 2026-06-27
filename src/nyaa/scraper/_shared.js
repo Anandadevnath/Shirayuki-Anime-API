@@ -170,15 +170,11 @@ export const extractTorrentRow = ($, el) => {
   const torrentId = getTorrentId(href);
   if (!torrentId) return null;
 
-  const titleRaw = $titleAnchor.attr('title') || $titleAnchor.text().trim() || null;
-
-  const commentsLink = $nameCell.find('a.comments').first();
-  const commentCount = parseNumber(commentsLink.text());
+  const title = $titleAnchor.attr('title') || $titleAnchor.text().trim() || null;
 
   const $linkCell = $cells.eq(2);
-  const torrentLink = $linkCell.find('a[href$=".torrent"]').attr('href')?.trim() || null;
-  const magnetHref = $linkCell.find('a[href^="magnet:"]').attr('href')?.trim() || null;
-  const magnetInfo = parseMagnet(magnetHref);
+  // The magnet link is scraped but not exposed in the row payload.
+  void $linkCell;
 
   const sizeText = $cells.eq(3).text().trim() || null;
   const $dateCell = $cells.eq(4);
@@ -192,21 +188,17 @@ export const extractTorrentRow = ($, el) => {
 
   const rowClass = ($row.attr('class') || '').trim();
   const isTrusted = rowClass === 'success';
-  const isRemake = rowClass === 'danger';
 
+  // Lean, hianime-style row: flat keys, only the data the UI actually
+  // consumes. The magnet link is intentionally not exposed — use the
+  // torrent details endpoint if you need the .torrent or info hash.
   return {
     id: torrentId,
-    title: titleRaw,
+    title,
     url: toAbsoluteUrl(href),
-    page: toAbsoluteUrl(href),
     category,
     categoryLabel: CATEGORIES[category] || null,
     isTrusted,
-    isRemake,
-    comments: commentCount || 0,
-    torrentLink: torrentLink ? toAbsoluteUrl(torrentLink) : null,
-    magnet: magnetHref,
-    magnetInfo,
     size: sizeText,
     sizeBytes: parseSizeToBytes(sizeText),
     date: dateText,
@@ -226,7 +218,7 @@ export const extractTorrentRows = ($, scope) => {
     .filter((row) => row && row.id);
 };
 
-export const extractPagination = ($, basePath, baseParams = {}) => {
+export const extractPagination = ($) => {
   const $pageInfo = $('.pagination-page-info').first();
   const totalMatch = $pageInfo.text().match(/out of\s+([\d,]+)\s+results/i);
   const totalResults = totalMatch ? Number(totalMatch[1].replace(/,/g, '')) : null;
@@ -250,47 +242,56 @@ export const extractPagination = ($, basePath, baseParams = {}) => {
     .filter((n) => Number.isFinite(n));
 
   const totalPages = Math.max(totalFromLast || 0, ...pageLinks, currentPage);
-
   const hasNextPage = $('.pagination li.next').not('.disabled').length > 0;
-  const hasPreviousPage = $('.pagination li.previous').not('.disabled').length > 0;
-
-  const buildPageUrl = (page) => {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(baseParams)) {
-      if (v === undefined || v === null || v === '') continue;
-      params.set(k, String(v));
-    }
-    if (page > 1) params.set('p', String(page));
-    const qs = params.toString();
-    return `${NYAA_BASE_URL}${basePath}${qs ? `?${qs}` : ''}`;
-  };
 
   return {
     currentPage,
     totalPages,
     totalResults,
     hasNextPage,
-    hasPreviousPage,
-    nextPage: hasNextPage ? currentPage + 1 : null,
-    previousPage: currentPage > 1 ? currentPage - 1 : null,
-    pageUrl: buildPageUrl,
   };
 };
 
 export const VIDEO_EXTENSIONS = /\.(mkv|mp4|avi|webm|ts|m2ts|flv|mov)$/i;
 
-// Episode numbers are extracted from filenames. The strict pattern matches
-// ` - 01`, `[12]`, `E07`, `Ep123`, etc.; the fallback grabs any bare integer
-// when the strict pattern misses (e.g. `001.mkv`).
-const EPISODE_REGEX_STRICT = /(?:^|[\s\[\(\-_])(?:ep|e|episode|#)?\s*(\d{1,4})(?:v\d+)?(?:[\s\]\)\-_]|$)/i;
-const EPISODE_REGEX_FALLBACK = /(?:^|[^\d])(\d{1,4})(?:v\d+)?(?:[^\d]|$)/;
+// Episode numbers are extracted from filenames. We try multiple patterns in
+// priority order because release titles can be ambiguous — e.g. the bare
+// number "5" inside "S01E1150.5" must NOT be picked over the SxxExx pattern.
+//   1. SxxExx     — "S01E1150"  → 1150 (most reliable)
+//   2. EP/E prefix — "EP0001"   → 1
+//   3. Bracketed  — "[12]"      → 12
+//   4. " - N "    — "- 05"      → 5  (hianime/nyaa " - 05 (1080p)" shape)
+//   5. Bare int   — last resort (e.g. "001.mkv" with no other markers)
+const EPISODE_REGEX_SXXEXX = /\bS\d{1,2}E(\d{1,4})\b/i;
+const EPISODE_REGEX_EPPREFIX = /(?:^|[\s\[\(\-_.])#?E(?:P|p)?(\d{1,4})\b/i;
+const EPISODE_REGEX_BRACKET = /[\[\(](\d{1,4})[\[\]]/;
+const EPISODE_REGEX_DASHNUM = /\s-\s(\d{1,4})\b/;
+const EPISODE_REGEX_BARE = /(\d{1,4})/;
 
 export const extractEpisodeFromName = (name) => {
   if (!name) return null;
-  const m = name.match(EPISODE_REGEX_STRICT);
-  if (m) return Number(m[1]);
-  const fb = name.match(EPISODE_REGEX_FALLBACK);
-  return fb ? Number(fb[1]) : null;
+  const text = String(name);
+
+  // 1. SxxExx — these are unambiguous release-group episode tags and win over
+  //    any later "5" or ".5" sub-episode decorations.
+  const sxxexx = text.match(EPISODE_REGEX_SXXEXX);
+  if (sxxexx) return Number(sxxexx[1]);
+
+  // 2. EP/E prefix.
+  const epPrefix = text.match(EPISODE_REGEX_EPPREFIX);
+  if (epPrefix) return Number(epPrefix[1]);
+
+  // 3. Bare bracketed number like [12].
+  const bracket = text.match(EPISODE_REGEX_BRACKET);
+  if (bracket) return Number(bracket[1]);
+
+  // 4. " - N " marker.
+  const dash = text.match(EPISODE_REGEX_DASHNUM);
+  if (dash) return Number(dash[1]);
+
+  // 5. Bare integer (e.g. "001.mkv"). Use the first match.
+  const bare = text.match(EPISODE_REGEX_BARE);
+  return bare ? Number(bare[1]) : null;
 };
 
 export const walkFileTree = ($, $ul, parent = '') => {

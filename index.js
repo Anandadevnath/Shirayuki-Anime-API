@@ -48,7 +48,7 @@ import nyaaHomeRouter from "./src/nyaa/router/home.js";
 import nyaaSearchRouter from "./src/nyaa/router/search.js";
 import nyaaSearchSuggestionRouter from "./src/nyaa/router/search-suggestion.js";
 import nyaaAnimeRouter from "./src/nyaa/router/anime.js";
-import nyaaCategoryRouter from "./src/nyaa/router/category.js";
+import nyaaAzlistRouter from "./src/nyaa/router/azlist.js";
 import nyaaEpisodeServersRouter from "./src/nyaa/router/episode-servers.js";
 import nyaaEpisodeSourcesRouter from "./src/nyaa/router/episode-sources.js";
 import nyaaStreamRouter from "./src/nyaa/router/stream.js";
@@ -61,11 +61,17 @@ app.use("*", logger());
 app.use("*", cors());
 
 // Root — HTML API explorer (raw catalog available at /endpoints.json)
-app.get("/", (c) => c.html(renderLandingPage()));
+app.get("/", (c) => {
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate");
+  c.header("Pragma", "no-cache");
+  c.header("Expires", "0");
+  return c.html(renderLandingPage());
+});
 
-app.get("/endpoints.json", (c) =>
-  c.json({ message: "Shirayuki-Anime-API", ...API_CATALOG }),
-);
+app.get("/endpoints.json", (c) => {
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate");
+  return c.json({ message: "Shirayuki-Anime-API", ...API_CATALOG });
+});
 
 // API Routes
 app.route("/api/v2/hianime/home", hianimeHomeRouter);
@@ -113,7 +119,7 @@ app.route("/api/v2/nyaa/home", nyaaHomeRouter);
 app.route("/api/v2/nyaa/search", nyaaSearchRouter);
 app.route("/api/v2/nyaa/search/suggestion", nyaaSearchSuggestionRouter);
 app.route("/api/v2/nyaa/anime", nyaaAnimeRouter);
-app.route("/api/v2/nyaa/category", nyaaCategoryRouter);
+app.route("/api/v2/nyaa/azlist", nyaaAzlistRouter);
 app.route("/api/v2/nyaa/episode", nyaaEpisodeServersRouter);
 app.route("/api/v2/nyaa/episode/sources", nyaaEpisodeSourcesRouter);
 app.route("/api/v2/nyaa/stream", nyaaStreamRouter);

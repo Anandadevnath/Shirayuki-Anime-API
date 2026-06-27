@@ -1,107 +1,73 @@
-import { fetchViewPage, walkFileTree, extractLabelValueMap, parseNumber, parseSizeToBytes, toAbsoluteUrl, parseMagnet, NYAA_BASE_URL } from './_shared.js';
+import {
+  fetchViewPage,
+  walkFileTree,
+  extractLabelValueMap,
+  parseNumber,
+  parseSizeToBytes,
+  toAbsoluteUrl,
+  parseMagnet,
+  CATEGORIES,
+  NYAA_BASE_URL,
+} from './_shared.js';
 
 const textOf = ($el) => $el?.text()?.trim().replace(/\s+/g, ' ') || null;
 
-const extractPanelInfo = ($) => {
-  const labels = extractLabelValueMap($);
-  const result = {};
+const extractCategory = ($, labels) => {
+  const $v = labels['category'];
+  if (!$v || !$v.length) return { name: null, code: null };
 
-  const pickText = (key) => {
-    const $v = labels[key];
-    return $v && $v.length ? textOf($v) : null;
+  const $link = $v.find('a').first();
+  const name = textOf($link);
+  const href = $link.attr('href') || '';
+  const cMatch = href.match(/[?&]c=([0-9_]+)/);
+  const code = cMatch ? cMatch[1] : null;
+  return {
+    name,
+    code,
+    label: code ? CATEGORIES[code] || null : null,
+    url: href ? toAbsoluteUrl(href) : null,
   };
-
-  const pickHtml = (key) => {
-    const $v = labels[key];
-    return $v && $v.length ? $v.html()?.trim() || null : null;
-  };
-
-  const categoryHtml = pickHtml('category');
-  if (categoryHtml) {
-    const categoryLinks = [];
-    categoryHtml.replace(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g, (_, href, name) => {
-      categoryLinks.push({
-        name: name.trim(),
-        href,
-        url: toAbsoluteUrl(href),
-      });
-      return '';
-    });
-    result.category = {
-      raw: pickText('category'),
-      links: categoryLinks,
-    };
-    const cMatch = categoryLinks[0]?.href?.match(/[?&]c=([0-9_]+)/);
-    if (cMatch) result.categoryCode = cMatch[1];
-  }
-
-  const $dateEl = labels['date'];
-  result.date = {
-    raw: pickText('date'),
-    timestamp: $dateEl && $dateEl.length && $dateEl.attr('data-timestamp')
-      ? Number($dateEl.attr('data-timestamp')) || null
-      : null,
-  };
-
-  result.submitter = {
-    name: pickText('submitter'),
-  };
-  const $submitterLink = labels['submitter']?.find('a').first();
-  if ($submitterLink.length) {
-    const href = $submitterLink.attr('href') || null;
-    result.submitter.href = href;
-    result.submitter.url = toAbsoluteUrl(href);
-  }
-
-  result.seeders = parseNumber(pickText('seeders')) || 0;
-  result.leechers = parseNumber(pickText('leechers')) || 0;
-  result.completed = parseNumber(pickText('completed')) || 0;
-
-  result.size = {
-    raw: pickText('file size'),
-    bytes: parseSizeToBytes(pickText('file size')),
-  };
-
-  result.infoHash = pickText('info hash');
-
-  const $infoLink = labels['information']?.find('a').first();
-  if ($infoLink.length) {
-    const href = $infoLink.attr('href') || null;
-    result.information = {
-      label: pickText('information'),
-      href,
-      url: toAbsoluteUrl(href),
-    };
-  } else {
-    result.information = {
-      label: pickText('information'),
-    };
-  }
-
-  return result;
 };
 
-const extractDescription = ($) => {
-  const $desc = $('#torrent-description');
-  if (!$desc.length) return null;
-  const text = $desc.text().trim();
-  const html = $desc.html()?.trim() || null;
-  return { text, html };
+const extractSubmitter = ($, labels) => {
+  const $v = labels['submitter'];
+  if (!$v || !$v.length) return { name: null, url: null };
+  const $link = $v.find('a').first();
+  const name = $link.length ? textOf($link) : textOf($v);
+  const href = $link.attr('href') || null;
+  return { name, url: href ? toAbsoluteUrl(href) : null };
+};
+
+const extractInformation = ($, labels) => {
+  const $v = labels['information'];
+  if (!$v || !$v.length) return { label: null, url: null };
+  const $link = $v.find('a').first();
+  const label = $link.length ? textOf($link) : textOf($v);
+  const href = $link.attr('href') || null;
+  return { label, url: href ? toAbsoluteUrl(href) : null };
+};
+
+const extractDate = ($, labels) => {
+  const $v = labels['date'];
+  if (!$v || !$v.length) return { text: null, timestamp: null };
+  const text = textOf($v);
+  const tsAttr = $v.attr('data-timestamp');
+  return { text, timestamp: tsAttr ? Number(tsAttr) || null : null };
 };
 
 const extractDownloads = ($) => {
   const $footer = $('.panel-footer').first();
-  if (!$footer.length) return { torrentUrl: null, magnetUrl: null };
+  if (!$footer.length) return { torrentUrl: null, infoHash: null };
   const $torrentLink = $footer.find('a[href$=".torrent"]').first();
   const $magnetLink = $footer.find('a[href^="magnet:"]').first();
 
   const torrentHref = $torrentLink.attr('href') || null;
   const magnetHref = $magnetLink.attr('href') || null;
+  const parsed = parseMagnet(magnetHref);
 
   return {
     torrentUrl: torrentHref ? toAbsoluteUrl(torrentHref) : null,
-    magnetUrl: magnetHref || null,
-    magnet: parseMagnet(magnetHref),
+    infoHash: parsed?.infoHash || null,
   };
 };
 
@@ -126,18 +92,36 @@ export const getNyaaAnimeDetails = async ({ torrentId } = {}) => {
   }
 
   const title = textOf($('.panel-title').first());
-  const info = extractPanelInfo($);
-  const downloads = extractDownloads($);
-  const description = extractDescription($);
+  const labels = extractLabelValueMap($);
+
+  const category = extractCategory($, labels);
+  const submitter = extractSubmitter($, labels);
+  const information = extractInformation($, labels);
+  const date = extractDate($, labels);
+
+  const sizeText = textOf(labels['file size']);
+  const downloadLinks = extractDownloads($);
+
+  const $desc = $('#torrent-description');
+  const description = $desc.length ? $desc.text().trim() || null : null;
+
   const files = extractFileList($);
 
   return {
     source: url,
     id,
     title,
-    ...info,
     description,
-    downloads,
+    category,
+    submitter,
+    date,
+    size: sizeText,
+    sizeBytes: parseSizeToBytes(sizeText),
+    infoHash: downloadLinks.infoHash || textOf(labels['info hash']) || null,
+    seeders: parseNumber(textOf(labels['seeders'])) || 0,
+    leechers: parseNumber(textOf(labels['leechers'])) || 0,
+    completed: parseNumber(textOf(labels['completed'])) || 0,
+    information,
     fileCount: files.length,
     files,
   };

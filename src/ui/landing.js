@@ -84,15 +84,15 @@ export const API_CATALOG = {
       id: 'nyaa',
       name: 'Nyaa.si',
       accent: '#3582F7',
-      source: 'nyaa.si (torrent index — returns magnet/.torrent, not m3u8)',
+      source: 'nyaa.si (torrent index — returns .torrent URL + info hash, not m3u8)',
       groups: [
         {
           title: 'Listings',
           items: [
             { label: 'Home', path: '/api/v2/nyaa/home', desc: 'Latest uploads across English-translated + Anime categories.' },
-            { label: 'Categories list', path: '/api/v2/nyaa/category/list', desc: 'All Nyaa categories with codes & links.' },
-            { label: 'Category browse', path: '/api/v2/nyaa/category?category=1_2&page=1', desc: 'Browse a category (e.g. 1_2 = Anime English-translated).' },
-            { label: 'Torrent details', path: '/api/v2/nyaa/anime/2123254', desc: 'Metadata, magnet, info hash, file list for a torrent.' },
+            { label: 'A–Z list', path: '/api/v2/nyaa/azlist/A?page=1', desc: 'Browse a Nyaa category by letter (A = Anime, C = Anime English-translated, etc).' },
+            { label: 'Torrent details', path: '/api/v2/nyaa/anime/naruto', desc: 'Resolves the first search hit for the given name and returns its metadata, .torrent URL, info hash & file list. Numeric torrent IDs also work.' },
+            { label: 'Episodes', path: '/api/v2/nyaa/anime/one-piece/episodes', desc: 'Per-episode list (hianime-shape) — each row links to the best Nyaa torrent for that episode.' },
           ],
         },
         {
@@ -106,7 +106,7 @@ export const API_CATALOG = {
           title: 'Torrents (hand off to WebTorrent client)',
           items: [
             { label: 'Episode files', path: '/api/v2/nyaa/episode/servers?torrentId=2123254', desc: 'List of video files in the torrent (treated as selectable "servers").' },
-            { label: 'Episode sources', path: '/api/v2/nyaa/episode/sources?torrentId=2123254&ep=1&category=dub', desc: 'Magnet + .torrent URL + info hash for the requested episode file. `category=dub` picks the English audio track; omit or use `category=sub` for Japanese. NOT an m3u8 — feed into WebTorrent/Transmission/etc.' },
+            { label: 'Episode sources', path: '/api/v2/nyaa/episode/sources?torrentId=2123254&ep=1&category=dub', desc: 'Pick the right file inside the supplied torrent. If the torrent doesn\'t contain the requested episode, the endpoint transparently searches nyaa for a torrent that does and reroutes — so you can pass any torrentId from the franchise and still land on ep N\'s file. Returns the .torrent URL + info hash. `category=dub` picks the English audio track; omit or use `category=sub` for Japanese. NOT an m3u8 — feed into WebTorrent/Transmission/etc.' },
           ],
         },
       ],

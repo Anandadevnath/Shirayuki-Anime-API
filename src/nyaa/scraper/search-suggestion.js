@@ -19,7 +19,9 @@ export const getNyaaSearchSuggestions = async ({ q, limit = 10 } = {}) => {
     if (title) titles.add(title);
   });
 
-  const suggestions = Array.from(titles).slice(0, Math.max(1, Number(limit) || 10));
+  const suggestions = Array.from(titles)
+    .slice(0, Math.max(1, Number(limit) || 10))
+    .map((title) => ({ title }));
 
   return {
     source: url,

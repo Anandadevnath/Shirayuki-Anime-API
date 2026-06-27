@@ -1,4 +1,12 @@
-import { fetchViewPage, extractLabelValueMap, extractEpisodeFromName, parseSizeToBytes, parseMagnet, toAbsoluteUrl, NYAA_BASE_URL } from './_shared.js';
+import {
+  fetchViewPage,
+  extractLabelValueMap,
+  extractEpisodeFromName,
+  parseSizeToBytes,
+  parseMagnet,
+  toAbsoluteUrl,
+  NYAA_BASE_URL,
+} from './_shared.js';
 import { torrentClient } from '../stream/torrent-client.js';
 import { axios } from '../../utils/scrapper-deps.js';
 
@@ -74,9 +82,11 @@ export const getNyaaStreamInfo = async ({ torrentId, ep, baseUrl, transcode = fa
   const sizeText = pickText(labels, 'file size');
 
   // Prefer the .torrent buffer (full bencoded metadata, no DHT needed); fall
-  // back to the magnet if nyaa's CDN is unreachable.
+  // back to the magnet if nyaa's CDN is unreachable. Trackers are pulled
+  // from the magnet either way — without them WebTorrent falls back to DHT
+  // only and ffprobe/ffmpeg can't read file bytes fast enough.
   const torrent = torrentBuf
-    ? await torrentClient.addTorrentFile(torrentBuf, magnetInfo.infoHash)
+    ? await torrentClient.addTorrentFile(torrentBuf, magnetInfo.infoHash, { trackers: magnetInfo.trackers })
     : await torrentClient.addMagnet(magnetHref, magnetInfo.infoHash);
 
   const selectedFile = torrentClient.selectFile(torrent, episodeNumber) || torrent.files[0];
@@ -86,38 +96,42 @@ export const getNyaaStreamInfo = async ({ torrentId, ep, baseUrl, transcode = fa
   }
 
   const fileIndex = torrent.files.indexOf(selectedFile);
+  const selectedEpisode = extractEpisodeFromName(selectedFile.name);
 
   return {
     source: sourceUrl,
     torrentId: id,
     title,
     infoHash: magnetInfo.infoHash,
-    magnet: magnetInfo,
     torrentFileUrl: toAbsoluteUrl(`/download/${id}.torrent`),
     size: sizeText,
     sizeBytes: parseSizeToBytes(sizeText),
     fileCount: torrent.files.length,
-    files: torrent.files.map((f, i) => ({
-      index: i,
-      name: f.name,
-      length: f.length,
-      path: f.path,
-      episode: extractEpisodeFromName(f.name),
-    })),
     episode: episodeNumber,
     episodeFound: episodeNumber
       ? torrent.files.some((f) => extractEpisodeFromName(f.name) === episodeNumber)
       : false,
+    files: torrent.files.map((f, i) => ({
+      index: i,
+      name: f.name,
+      size: f.length,
+      episode: extractEpisodeFromName(f.name),
+    })),
     selectedFile: {
       index: fileIndex,
       name: selectedFile.name,
-      length: selectedFile.length,
-      path: selectedFile.path,
+      size: selectedFile.length,
+      episode: selectedEpisode,
     },
-    stream: {
-      url: buildStreamUrl(magnetInfo.infoHash, fileIndex, baseUrl || '', { transcode }),
-      type: 'http-range',
-    },
+    sources: [
+      {
+        type: 'torrent',
+        fileIndex,
+        fileName: selectedFile.name,
+        streamUrl: buildStreamUrl(magnetInfo.infoHash, fileIndex, baseUrl || '', { transcode }),
+        streamType: 'http-range',
+      },
+    ],
     strategy: torrentBuf ? 'torrent-file' : 'magnet',
     status: torrent.ready ? 'ready' : 'metadata',
   };

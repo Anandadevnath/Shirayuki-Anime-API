@@ -27,28 +27,13 @@ export const getNyaaCategory = async ({ category, page, filter, query } = {}) =>
     referer: NYAA_BASE_URL,
   });
 
-  const baseParams = { c: normalizedCategory, f: normalizedFilter };
-  if (query) baseParams.q = String(query).trim();
-
   return {
     source: url,
     category: normalizedCategory,
     categoryLabel: CATEGORIES[normalizedCategory] || null,
     filter: normalizedFilter,
     query: query ? String(query).trim() : null,
-    pagination: extractPagination($, '/', baseParams),
+    pagination: extractPagination($),
     results: extractTorrentRows($),
-  };
-};
-
-export const getNyaaCategories = async () => {
-  const entries = Object.entries(CATEGORIES).map(([code, label]) => ({
-    code,
-    label,
-    url: `${NYAA_BASE_URL}/?c=${code}`,
-  }));
-  return {
-    source: NYAA_BASE_URL,
-    categories: entries,
   };
 };

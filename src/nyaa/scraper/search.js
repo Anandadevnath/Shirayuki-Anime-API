@@ -1,4 +1,4 @@
-import { fetchPage, extractTorrentRows, extractPagination, NYAA_BASE_URL } from './_shared.js';
+import { fetchPage, extractTorrentRows, extractPagination, NYAA_BASE_URL, CATEGORIES } from './_shared.js';
 
 const normalizeCategory = (value) => {
   const v = String(value || '1_2').trim();
@@ -39,18 +39,15 @@ export const getNyaaSearch = async ({ q, page, category, filter, sort, order } =
     referer: NYAA_BASE_URL,
   });
 
-  const baseParams = { q: keyword, c: normalizedCategory, f: normalizedFilter };
-  if (sortKey) baseParams.s = sortKey;
-  if (orderKey) baseParams.o = orderKey;
-
   return {
     source: url,
     query: keyword,
     category: normalizedCategory,
+    categoryLabel: CATEGORIES[normalizedCategory] || null,
     filter: normalizedFilter,
     sort: sortKey,
     order: orderKey,
-    pagination: extractPagination($, '/', baseParams),
+    pagination: extractPagination($),
     results: extractTorrentRows($),
   };
 };
