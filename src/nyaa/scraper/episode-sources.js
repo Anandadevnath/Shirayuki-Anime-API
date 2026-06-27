@@ -1,5 +1,6 @@
 import { fetchViewPage, walkFileTree, extractLabelValueMap, extractEpisodeFromName, VIDEO_EXTENSIONS, parseNumber, parseSizeToBytes, parseMagnet, toAbsoluteUrl, NYAA_BASE_URL } from './_shared.js';
 import { torrentClient } from '../stream/torrent-client.js';
+import { probeFile, pickAudioIndexForCategory, normalizeCategory } from '../stream/probe.js';
 import { axios } from '../../utils/scrapper-deps.js';
 
 const normalizeTorrentId = (raw) => {
@@ -50,12 +51,14 @@ const fetchTorrentFileBuffer = async (torrentId) => {
   return Buffer.from(res?.data || []);
 };
 
-export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode = false } = {}) => {
+export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode = false, category = 'sub', server = 'default' } = {}) => {
   const id = normalizeTorrentId(torrentId);
   if (!id) {
     throw new Error('torrentId query parameter is required (numeric Nyaa torrent id)');
   }
   const episodeNumber = parseEpisodeNumber(ep);
+  const normalizedCategory = normalizeCategory(category);
+  const normalizedServer = String(server || 'default').toLowerCase().replace(/\s+/g, '-').trim() || 'default';
 
   const { url, $ } = await fetchViewPage(id, `${NYAA_BASE_URL}/`);
 
@@ -102,20 +105,46 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
   // possible (cheapest: derive from already-loaded torrent or fall back to
   // /download/{id}.torrent — same metadata source /stream uses).
   let fileIndex = -1;
+  let wtFile = null;
   if (episodeFile && resolvedInfoHash) {
     const cached = await torrentClient.lookupTorrent(resolvedInfoHash).catch(() => null);
     if (cached) {
-      fileIndex = cached.files.findIndex((f) => f.name === episodeFile.name);
+      wtFile = cached.files.find((f) => f.name === episodeFile.name) || null;
+      fileIndex = wtFile ? cached.files.indexOf(wtFile) : -1;
     } else {
       try {
         const buf = await fetchTorrentFileBuffer(id);
         const t = await torrentClient.addTorrentFile(buf, resolvedInfoHash);
-        fileIndex = t.files.findIndex((f) => f.name === episodeFile.name);
+        wtFile = t.files.find((f) => f.name === episodeFile.name) || null;
+        fileIndex = wtFile ? t.files.indexOf(wtFile) : -1;
       } catch {
         fileIndex = -1;
       }
     }
   }
+
+  // Probe audio/subtitle tracks via ffprobe. Best-effort: if ffprobe isn't
+  // installed or the stream errors, we still return the source info — the
+  // browser player will fall back to its built-in track selector.
+  let tracks = { audio: [], subtitle: [] };
+  if (wtFile) {
+    try {
+      tracks = await probeFile(wtFile);
+    } catch (err) {
+      console.error('[nyaa/episode-sources] probe failed:', err.message);
+    }
+  }
+
+  // Pick which audio stream to bake into streamUrl. The `category` query
+  // param selects the language (sub = Japanese, dub = English) — we resolve
+  // that to a stream index here so the player can drop streamUrl straight
+  // into a <video src> without an extra round trip.
+  const pick = pickAudioIndexForCategory({
+    audioTracks: tracks.audio,
+    fileName: episodeFile?.name || '',
+    category: normalizedCategory,
+  });
+  const audioIndex = pick.audioIndex;
 
   const buildStreamUrl = () => {
     if (!resolvedInfoHash || fileIndex < 0 || !baseUrl) return null;
@@ -123,6 +152,7 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
       hash: resolvedInfoHash,
       file: String(fileIndex),
     });
+    if (audioIndex != null) params.set('audio', String(audioIndex));
     if (transcode) params.set('transcode', '1');
     return `${baseUrl}/api/v2/nyaa/stream/file?${params.toString()}`;
   };
@@ -146,6 +176,13 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
         }
       : null,
     allEpisodes: candidates.map((c) => c.episode),
+    category: normalizedCategory,
+    server: normalizedServer,
+    audioTrack: {
+      requestedCategory: normalizedCategory,
+      index: audioIndex,
+      pickReason: pick.reason,
+    },
     torrent: {
       title,
       size: sizeText,
@@ -173,13 +210,21 @@ export const getNyaaEpisodeSources = async ({ torrentId, ep, baseUrl, transcode 
         torrentUrl: torrentHref ? toAbsoluteUrl(torrentHref) : null,
         magnetUrl: magnetHref,
         infoHash: resolvedInfoHash || infoHashText,
+        // HiAnime-style fields so the UI can be provider-agnostic.
+        category: normalizedCategory,
+        server: normalizedServer,
         // Drop into a <video src> directly. Same heuristic as /stream —
         // server must have called /stream (or /stream/file) at least once
         // for the torrent to be loaded in the WebTorrent client.
         streamUrl,
         streamType: streamUrl ? 'http-range' : null,
+        // Audio/subtitle tracks inside the container. `index` matches the
+        // 0-based numbering ffmpeg uses for `-map 0:a:N` / `-map 0:s:N`.
+        // The streamUrl above already has the picked `audio` query baked
+        // in; pass ?subtitle=N too to additionally select a subtitle.
+        tracks,
       },
     ],
-    tracks: [],
+    tracks,
   };
 };

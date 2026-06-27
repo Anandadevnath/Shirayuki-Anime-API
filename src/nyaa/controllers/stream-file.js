@@ -61,11 +61,27 @@ const parseRange = (rangeHeader, fileLength) => {
 //     we set them to "unknown" so the client treats the response as a live
 //     stream (browsers will still issue byte-range requests, but ffmpeg always
 //     reads from the start of the source).
-const transcodeToFragmentedMp4 = (sourceStream) => {
+//
+// Track selection: when `audio` and/or `subtitle` are provided (stream indices
+// as listed by ffprobe, i.e. 0-based across all streams), we emit `-map 0:v:0`
+// plus the requested audio/subtitle streams. Without selection we mirror the
+// default behavior — first video, first audio, no subs.
+const transcodeToFragmentedMp4 = (sourceStream, { audio, subtitle } = {}) => {
+  const mapArgs = ['-map', '0:v:0'];
+  if (typeof audio === 'number' && Number.isInteger(audio) && audio >= 0) {
+    mapArgs.push('-map', `0:a:${audio}`);
+  } else {
+    mapArgs.push('-map', '0:a:0?');
+  }
+  if (typeof subtitle === 'number' && Number.isInteger(subtitle) && subtitle >= 0) {
+    mapArgs.push('-map', `0:s:${subtitle}`);
+  }
+
   const ff = spawn('ffmpeg', [
     '-loglevel', 'error',
     '-fflags', '+genpts',
     '-i', 'pipe:0',
+    ...mapArgs,
     '-c:v', 'libx264',
     '-preset', 'veryfast',
     '-crf', '23',
@@ -73,6 +89,7 @@ const transcodeToFragmentedMp4 = (sourceStream) => {
     '-c:a', 'aac',
     '-b:a', '128k',
     '-ac', '2',
+    ...(typeof subtitle === 'number' ? ['-c:s', 'mov_text'] : []),
     '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
     '-f', 'mp4',
     'pipe:1',
@@ -105,6 +122,16 @@ export const nyaaStreamFileController = async (c) => {
   const rangeHeader = c.req.header('range');
   const transcode = c.req.query('transcode') === '1';
 
+  // Track selection — stream indices from ffprobe's output (0-based within
+  // audio / subtitle streams). `null`/missing means "use the default".
+  const audioRaw = c.req.query('audio');
+  const subtitleRaw = c.req.query('subtitle');
+  const audio = audioRaw != null && audioRaw !== '' ? Number(audioRaw) : null;
+  const subtitle = subtitleRaw != null && subtitleRaw !== '' ? Number(subtitleRaw) : null;
+  const hasTrackSelection =
+    (audio != null && Number.isInteger(audio) && audio >= 0) ||
+    (subtitle != null && Number.isInteger(subtitle) && subtitle >= 0);
+
   if (!/^[a-f0-9]{40}$/i.test(hash)) {
     return c.json({ success: false, error: 'valid hash query parameter is required' }, 400);
   }
@@ -132,6 +159,20 @@ export const nyaaStreamFileController = async (c) => {
   headers.set('Accept-Ranges', 'bytes');
   headers.set('Cache-Control', 'no-store');
 
+  if (hasTrackSelection && !transcode) {
+    // Track selection requires transcoding — we can't filter streams out of a
+    // raw HTTP-range response without a re-mux. The client should either
+    // pass ?transcode=1 alongside the track params, or use the browser's
+    // native track selector on the raw stream.
+    return c.json(
+      {
+        success: false,
+        error: 'audio/subtitle selection requires transcode=1 — raw streams expose all tracks via the browser player',
+      },
+      400,
+    );
+  }
+
   if (transcode) {
     // Transcoded output is H.264/AAC fragmented MP4. Always start from the
     // beginning of the source — we ignore the Range header because ffmpeg
@@ -142,7 +183,7 @@ export const nyaaStreamFileController = async (c) => {
       try { wtStream.destroy(); } catch { /* noop */ }
     });
 
-    const mp4Stream = transcodeToFragmentedMp4(wtStream);
+    const mp4Stream = transcodeToFragmentedMp4(wtStream, { audio, subtitle });
     mp4Stream.on('error', (err) => {
       console.error('[nyaa/stream/file] ffmpeg stream error:', err.message);
       try { mp4Stream.destroy(); } catch { /* noop */ }

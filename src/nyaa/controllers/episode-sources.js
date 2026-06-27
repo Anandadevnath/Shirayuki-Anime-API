@@ -7,11 +7,13 @@ const wantsTranscode = (c) => c.req.query('transcode') !== '0';
 
 export const nyaaEpisodeSourcesController = wrapController({
   cacheKey: (c) =>
-    `episode-sources:${c.req.query('torrentId') || ''}:${c.req.query('ep') || '1'}:${wantsTranscode(c) ? 'tc' : 'raw'}`,
+    `episode-sources:${c.req.query('torrentId') || ''}:${c.req.query('ep') || '1'}:${c.req.query('category') || 'sub'}:${c.req.query('server') || ''}:${wantsTranscode(c) ? 'tc' : 'raw'}`,
   handler: (c) =>
     getNyaaEpisodeSources({
       torrentId: c.req.query('torrentId'),
       ep: c.req.query('ep'),
+      category: c.req.query('category'),
+      server: c.req.query('server'),
       baseUrl: new URL(c.req.url).origin,
       transcode: wantsTranscode(c),
     }),
