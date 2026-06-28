@@ -186,6 +186,11 @@ Create a `.env` file in the project root:
 ```env
 PORT=3000                    # Server port (default: 3000)
 NODE_ENV=development         # Environment: development/production/test
+
+# WebTorrent cache (controls disk usage for streamed torrents)
+WEBTORRENT_CACHE_DIR=/tmp/webtorrent   # Where downloaded chunks are stored
+WEBTORRENT_MAX_TORRENTS=5             # LRU cap on loaded torrents
+WEBTORRENT_MAX_BYTES=5368709120       # LRU cap in bytes (default 5 GiB)
 ```
 
 ---

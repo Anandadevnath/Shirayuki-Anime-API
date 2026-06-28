@@ -11,8 +11,8 @@
 //      (id / title / jname / ename / poster / episodes / type / quality / ...)
 //      so a single frontend can render both providers identically.
 //
-// Each row keeps `torrentId` (and `torrent`) so consumers can pivot straight
-// to /api/v2/nyaa/episode/sources?torrentId=... for playback later.
+// Each row keeps `torrentId` so consumers can pivot straight to
+// /api/v2/nyaa/episode/sources?torrentId=... for playback later.
 
 import { fetchPage, extractTorrentRows, NYAA_BASE_URL, CATEGORIES } from './_shared.js';
 import { enrichFromAniList } from './_enrich.js';
@@ -123,23 +123,6 @@ const mapRow = (row) => {
     quality,
     episodeNumber: episode,
     rank: null,
-    // Keep the original torrent envelope so callers can pivot to
-    // /episode/sources without re-scraping.
-    torrent: {
-      id: row.id,
-      title: row.title,
-      url: row.url,
-      category: row.category,
-      categoryLabel: row.categoryLabel,
-      isTrusted: row.isTrusted,
-      size: row.size,
-      sizeBytes: row.sizeBytes,
-      date: row.date,
-      timestamp: row.timestamp,
-      seeders: row.seeders,
-      leechers: row.leechers,
-      completed: row.completed,
-    },
   };
 };
 

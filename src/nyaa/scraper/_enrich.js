@@ -38,6 +38,12 @@ export const cleanTorrentTitle = (raw) => {
   // up on releases like "One Piece EP0001 ..." or "Title #EP123 - ..."
   const epIdx = t.search(/\s#?EP\d{1,5}\b/i);
   if (epIdx > 0 && (dashIdx === -1 || epIdx < dashIdx)) dashIdx = epIdx;
+  // Batch episode range — "0747-0782", "001-100". Cut at the start of the
+  // range so we don't ship "One Piece 0747-0782" to AniList (which won't
+  // match). Triggers only when the range has 3+ digits on each side, which
+  // avoids eating legitimate hyphens in titles like "Sakasa-senpai".
+  const rangeIdx = t.search(/\b\d{3,}\s*-\s*\d{3,}\b/);
+  if (rangeIdx > 0 && (dashIdx === -1 || rangeIdx < dashIdx)) dashIdx = rangeIdx;
   if (dashIdx > 0) t = t.slice(0, dashIdx);
   // Collapse whitespace and trim.
   t = t.replace(/\s+/g, ' ').trim();

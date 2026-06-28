@@ -62,10 +62,35 @@ const parseRange = (rangeHeader, fileLength) => {
 //     stream (browsers will still issue byte-range requests, but ffmpeg always
 //     reads from the start of the source).
 //
+// The encoder flags below are tuned for *low-latency* output:
+//
+//   -tune zerolatency  — disable x264's rate-distortion lookahead, emit each
+//                        frame as soon as it's encoded (no GOP buffer).
+//   -g 30              — short GOP (1 keyframe/sec @ 30fps) so the stream is
+//                        seekable in small chunks.
+//   -keyint_min 30     — never place two keyframes closer than 30 frames.
+//   -sc_threshold 0    — disable scene-cut detection so we never insert
+//                        surprise keyframes that break the fixed GOP.
+//   -bf 0              — no B-frames; lets the encoder pipeline be straight-through.
+//   -flush_packets 1   — flush the muxer after every packet, so bytes leave
+//                        ffmpeg's stdout immediately instead of batching up.
+//   -analyzeduration 1 + -probesize 32768 — only the first 32 KB of the source
+//                        is needed for ffmpeg to determine codec/framerate.
+//                        Without these, ffmpeg blocks on the pipe for several
+//                        seconds waiting for the demuxer to see enough header
+//                        bytes to start producing output, which is the actual
+//                        cause of the "buffers forever" symptom.
+//
 // Track selection: when `audio` and/or `subtitle` are provided (stream indices
 // as listed by ffprobe, i.e. 0-based across all streams), we emit `-map 0:v:0`
 // plus the requested audio/subtitle streams. Without selection we mirror the
 // default behavior — first video, first audio, no subs.
+//
+// Returns both the readable stream of ffmpeg's output AND the spawned process
+// handle, so the caller can SIGKILL the ffmpeg child when the HTTP response
+// is aborted (browser closed the tab, navigated away, or paused for too long).
+// Without explicit teardown, a disconnected client leaves ffmpeg blocked on
+// its stdout pipe and eating a full CPU core indefinitely.
 const transcodeToFragmentedMp4 = (sourceStream, { audio, subtitle } = {}) => {
   const mapArgs = ['-map', '0:v:0'];
   if (typeof audio === 'number' && Number.isInteger(audio) && audio >= 0) {
@@ -79,18 +104,28 @@ const transcodeToFragmentedMp4 = (sourceStream, { audio, subtitle } = {}) => {
 
   const ff = spawn('ffmpeg', [
     '-loglevel', 'error',
-    '-fflags', '+genpts',
+    '-fflags', '+genpts+nobuffer',
+    '-flags', 'low_delay',
+    '-analyzeduration', '1',
+    '-probesize', '32768',
     '-i', 'pipe:0',
     ...mapArgs,
     '-c:v', 'libx264',
     '-preset', 'veryfast',
+    '-tune', 'zerolatency',
     '-crf', '23',
+    '-g', '30',
+    '-keyint_min', '30',
+    '-sc_threshold', '0',
+    '-bf', '0',
     '-pix_fmt', 'yuv420p',
     '-c:a', 'aac',
     '-b:a', '128k',
     '-ac', '2',
     ...(typeof subtitle === 'number' ? ['-c:s', 'mov_text'] : []),
     '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+    '-frag_size', '4096',
+    '-flush_packets', '1',
     '-f', 'mp4',
     'pipe:1',
   ], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -113,7 +148,23 @@ const transcodeToFragmentedMp4 = (sourceStream, { audio, subtitle } = {}) => {
     }
   });
 
-  return ff.stdout;
+  return { stdout: ff.stdout, process: ff };
+};
+
+// Kill the ffmpeg child + tear down the source/target streams. Used when the
+// HTTP client disconnects mid-stream so we don't leak CPU + RAM. Tries SIGTERM
+// first (lets ffmpeg flush its moov), then escalates to SIGKILL after 1s.
+const teardownTranscode = ({ process: ff, sourceStream, mp4Stream }) => {
+  try { mp4Stream?.destroy?.(); } catch { /* noop */ }
+  try { sourceStream?.destroy?.(); } catch { /* noop */ }
+  if (!ff || ff.killed) return;
+  try { ff.stdin?.end?.(); } catch { /* noop */ }
+  try { ff.kill('SIGTERM'); } catch { /* noop */ }
+  setTimeout(() => {
+    if (ff && !ff.killed) {
+      try { ff.kill('SIGKILL'); } catch { /* noop */ }
+    }
+  }, 1000).unref?.();
 };
 
 export const nyaaStreamFileController = async (c) => {
@@ -147,6 +198,19 @@ export const nyaaStreamFileController = async (c) => {
     return c.json({ success: false, error: `file index ${fileIndex} not found in torrent` }, 404);
   }
 
+  // Mark this torrent as having an in-flight HTTP stream. The LRU evictor in
+  // torrent-client.js skips torrents with liveStreams > 0 so the bytes we're
+  // about to serve don't get yanked out from under the player. Released when
+  // the underlying stream closes (browser disconnect, end-of-file, or error).
+  const torrentKey = hash.toLowerCase();
+  let streamReleased = false;
+  const releaseOnce = () => {
+    if (streamReleased) return;
+    streamReleased = true;
+    torrentClient.releaseStream(torrentKey);
+  };
+  torrentClient.acquireStream(torrentKey);
+
   const total = file.length;
   const range = parseRange(rangeHeader, total);
   const start = range?.start ?? 0;
@@ -177,13 +241,18 @@ export const nyaaStreamFileController = async (c) => {
     // Transcoded output is H.264/AAC fragmented MP4. Always start from the
     // beginning of the source — we ignore the Range header because ffmpeg
     // needs contiguous input from byte 0.
-    const wtStream = file.createReadStream({ start: 0, end: total - 1 });
+    //
+    // highWaterMark is bumped to 1 MB so WebTorrent keeps feeding ffmpeg
+    // without pausing on every read. The default 64 KB causes the piece
+    // picker to alternate between downloading new pieces and serving
+    // buffered ones, which serializes badly with the encoder.
+    const wtStream = file.createReadStream({ start: 0, end: total - 1, highWaterMark: 1 << 20 });
     wtStream.on('error', (err) => {
       console.error(`[nyaa/stream/file] WebTorrent stream error for ${hash}:`, err.message);
       try { wtStream.destroy(); } catch { /* noop */ }
     });
 
-    const mp4Stream = transcodeToFragmentedMp4(wtStream, { audio, subtitle });
+    const { stdout: mp4Stream, process: ffProcess } = transcodeToFragmentedMp4(wtStream, { audio, subtitle });
     mp4Stream.on('error', (err) => {
       console.error('[nyaa/stream/file] ffmpeg stream error:', err.message);
       try { mp4Stream.destroy(); } catch { /* noop */ }
@@ -193,7 +262,20 @@ export const nyaaStreamFileController = async (c) => {
     // Fragmented MP4 length is unknown ahead of time — let the browser use
     // chunked transfer encoding.
     headers.set('Content-Disposition', `inline; filename="${safeName.replace(/\.[^.]+$/, '')}.mp4"`);
-    return new Response(mp4Stream, { status: 200, headers });
+    const response = new Response(mp4Stream, { status: 200, headers });
+
+    // When the browser closes the connection (tab navigated away, user hit
+    // pause, range request canceled), tear down the ffmpeg child + WebTorrent
+    // stream. Without this each aborted request leaks a 100%-CPU ffmpeg
+    // process that lives until the server restarts.
+    const abortHandler = () => {
+      teardownTranscode({ process: ffProcess, sourceStream: wtStream, mp4Stream });
+      releaseOnce();
+    };
+    c.req.raw?.signal?.addEventListener?.('abort', abortHandler);
+    mp4Stream.on('close', abortHandler);
+
+    return response;
   }
 
   // Raw byte-range path — fast, no CPU cost, requires browser support for
@@ -210,6 +292,10 @@ export const nyaaStreamFileController = async (c) => {
     console.error(`[nyaa/stream/file] stream error for ${hash}:`, err.message);
     try { stream.destroy(); } catch { /* noop */ }
   });
+  // Release the LRU stream slot when the read stream ends or the browser
+  // disconnects, mirroring the transcode branch above.
+  stream.on('close', releaseOnce);
+  c.req.raw?.signal?.addEventListener?.('abort', releaseOnce);
 
   return new Response(stream, { status: range ? 206 : 200, headers });
 };

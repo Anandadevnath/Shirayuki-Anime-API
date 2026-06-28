@@ -294,6 +294,36 @@ export const extractEpisodeFromName = (name) => {
   return bare ? Number(bare[1]) : null;
 };
 
+// Pull an inclusive "X-Y" episode range (e.g. "S01E01-E03", "E1-E13",
+// "Vol.1-3") out of a cleaned torrent title. Returns { lo, hi } or null.
+// Mirrors the helper used by episode-resolver — duplicated here so the
+// all-sources scraper can stay decoupled from the resolver module.
+export const extractEpisodeRange = (rawTitle) => {
+  if (!rawTitle) return null;
+  const t = String(rawTitle);
+
+  // Matches "E01-E03", "S01E01-E03", "ep 1-13", "Vol.1-3", " - 5 - 12 ".
+  // The optional single-letter prefix (E/e/V/v/#) on each side lets
+  // "E##-E##" / "S##E##-E##" patterns match where `\d+` alone can't span
+  // the embedded E. We don't anchor with \b because S##E##-E## has
+  // S##E## glued together with no word boundary between digits and the
+  // first E.
+  const reGlobal = /(?:[EeVv#])?(?:ep?|episode|vol\.?)?\s*(\d{1,4})\s*[-~]\s*(?:[EeVv#])?(\d{1,4})/gi;
+  let best = null;
+  let m;
+  while ((m = reGlobal.exec(t)) !== null) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    if (hi - lo > 2000) continue; // skip implausibly wide ("1080p" misread)
+    if (hi - lo < 1) continue;
+    if (!best || hi - lo < best.hi - best.lo) best = { lo, hi };
+  }
+  return best;
+};
+
 export const walkFileTree = ($, $ul, parent = '') => {
   const files = [];
   $ul.children('li').each((_, li) => {

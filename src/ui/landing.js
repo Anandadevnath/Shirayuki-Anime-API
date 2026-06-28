@@ -93,6 +93,7 @@ export const API_CATALOG = {
             { label: 'A–Z list', path: '/api/v2/nyaa/azlist/A?page=1', desc: 'Browse a Nyaa category by letter (A = Anime, C = Anime English-translated, etc).' },
             { label: 'Torrent details', path: '/api/v2/nyaa/anime/naruto', desc: 'Resolves the first search hit for the given name and returns its metadata, .torrent URL, info hash & file list. Numeric torrent IDs also work.' },
             { label: 'Episodes', path: '/api/v2/nyaa/anime/one-piece/episodes', desc: 'Per-episode list (hianime-shape) — each row links to the best Nyaa torrent for that episode.' },
+            { label: 'All sources (from torrentId)', path: '/api/v2/nyaa/anime/1736866/all-sources?category=sub', desc: 'Given any Nyaa torrentId, derive the series and return every episode with its torrentId + a `streamUrl` (a deep-link to `/episode/sources` that returns the actual playable source). Use when you only have one torrentId and need the full episode list.' },
           ],
         },
         {
