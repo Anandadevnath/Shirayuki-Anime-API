@@ -74,7 +74,7 @@ export const API_CATALOG = {
           title: 'Search',
           items: [
             { label: 'Search', path: '/api/v2/animekai/search?q=naruto&page=1', desc: 'Keyword search (AnimeKai /filter).' },
-            { label: 'Advanced search', path: '/api/v2/animekai/search/advanced?q=naruto&type=tv&status=currently-airing&sort=score&page=1', desc: 'Filter by type, genre, season, year, status, language & sort.' },
+            { label: 'Advanced search', path: '/api/v2/animekai/search/advanced?q=naruto&type=tv&sort=score&page=1', desc: 'Filter by type, genre, season, year, status, language & sort.' },
             { label: 'Suggestions', path: '/api/v2/animekai/search/suggestion?q=naruto', desc: 'Autocomplete suggestions.' },
           ],
         },
