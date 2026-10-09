@@ -22,7 +22,7 @@
 
 > **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
 
-*A RESTful API that unifies anime data across **HiAnime**, **Anixo**, **AnimeX**, and **Anikuro** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
+*A RESTful API that unifies anime data across **Anixo** and **AnimeKai** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
 
 </div>
 
@@ -39,7 +39,7 @@
 | 📺 **Anime Details** | Full metadata, episodes, schedules |
 | 🎬 **Streaming Sources** | Episode servers and video sources |
 | 🗓️ **Schedules** | Daily airing schedules by date |
-| 🌐 **Multi-Provider** | HiAnime · Anixo · AnimeX · Anikuro |
+| 🌐 **Multi-Provider** | Anixo · AnimeKai |
 | 🔁 **HLS Proxy** | Ready-to-play proxied `.m3u8` streams |
 
 </div>
@@ -66,31 +66,6 @@ npm run start
 
 ## 📡 API Endpoints
 
-### HiAnime
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/hianime/home` | Spotlight, trending, top anime |
-| `GET` | `/api/v2/hianime/azlist/:letter?page=1` | Browse anime A-Z |
-| `GET` | `/api/v2/hianime/anime/:animeId` | Full anime details |
-| `GET` | `/api/v2/hianime/anime/:animeId/episodes` | Episode list |
-| `GET` | `/api/v2/hianime/search?q=&page=1` | Basic search |
-| `GET` | `/api/v2/hianime/search/advanced` | Advanced filters |
-| `GET` | `/api/v2/hianime/search/suggestion?q=` | Autocomplete |
-| `GET` | `/api/v2/hianime/producer/:producer?page=1` | Filter by studio |
-| `GET` | `/api/v2/hianime/genre/:genre?page=1` | Filter by genre |
-| `GET` | `/api/v2/hianime/category/:category?page=1` | Curated lists |
-| `GET` | `/api/v2/hianime/schedule?date=YYYY-MM-DD&timezone=UTC` | Daily schedule |
-| `GET` | `/api/v2/hianime/episode/servers?animeEpisodeId=&ep=` | Get streaming servers (animeEpisodeId required) |
-| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=&category=` | Get video sources (animeEpisodeId required) |
-
-### Anikuro
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/anikuro/episode/servers?animeEpisodeId=&ep=` | Get streaming servers (animeEpisodeId required) |
-| `GET` | `/api/v2/anikuro/episode/sources?animeEpisodeId=&ep=&server=&category=` | Get video sources (animeEpisodeId required) |
-
 ### Anixo
 
 > AniList-backed listings · MegaPlay streaming (`megaplay`, `megaplay-mal`)
@@ -112,26 +87,23 @@ npm run start
 | `GET` | `/api/v2/anixo/episode/sources?animeEpisodeId=&ep=&server=megaplay&category=sub` | Video sources (m3u8) |
 | `GET` | `/api/v2/anixo/proxy?url=&ref=` | HLS playlist proxy |
 
-### AnimeX
+### AnimeKai
 
-> animex.one catalog via its own GraphQL (~20.5k titles, 685 pages) · MegaPlay streaming
+> animekai.ro scrape · MegaVid streaming (`ani-hd`, `hd`, `hd-1`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v2/animex/home` | Spotlight, trending, popular, seasonal |
-| `GET` | `/api/v2/animex/azlist/:letter?page=1` | Full catalogue grid (685 pages) |
-| `GET` | `/api/v2/animex/anime/:animeId` | Full anime details |
-| `GET` | `/api/v2/animex/anime/:animeId/episodes` | Episode list |
-| `GET` | `/api/v2/animex/search?q=&page=1` | Basic search |
-| `GET` | `/api/v2/animex/search/advanced` | Advanced filters |
-| `GET` | `/api/v2/animex/search/suggestion?q=` | Autocomplete |
-| `GET` | `/api/v2/animex/producer/:producer?page=1` | Filter by studio |
-| `GET` | `/api/v2/animex/genre/:genre?page=1` | Filter by genre |
-| `GET` | `/api/v2/animex/category/:category?page=1` | Curated lists |
-| `GET` | `/api/v2/animex/schedule?date=YYYY-MM-DD&timezone=UTC` | Daily schedule |
-| `GET` | `/api/v2/animex/episode/servers?animeEpisodeId=&ep=` | Streaming servers |
-| `GET` | `/api/v2/animex/episode/sources?animeEpisodeId=&ep=&server=megaplay&category=sub` | Video sources (m3u8) |
-| `GET` | `/api/v2/animex/proxy?url=&ref=` | HLS playlist proxy |
+| `GET` | `/api/v2/animekai` | Spotlight, trending, top-airing, popular, latest-episode & recently-updated |
+| `GET` | `/api/v2/animekai/azlist/:letter?page=1` | Catalogue by letter (0-9, A-Z, other) |
+| `GET` | `/api/v2/animekai/anime/:animeId` | Full anime details |
+| `GET` | `/api/v2/animekai/anime/:animeId/episodes` | Episode list |
+| `GET` | `/api/v2/animekai/search?q=&page=1` | Basic search |
+| `GET` | `/api/v2/animekai/search/advanced` | Advanced filters |
+| `GET` | `/api/v2/animekai/search/suggestion?q=` | Autocomplete |
+| `GET` | `/api/v2/animekai/schedule?date=YYYY-MM-DD` | Daily schedule |
+| `GET` | `/api/v2/animekai/episode/servers?animeEpisodeId=&ep=` | Streaming servers (Ani-HD, HD, HD-1) |
+| `GET` | `/api/v2/animekai/episode/sources?animeEpisodeId=&ep=&server=&category=` | Video sources (m3u8) |
+| `GET` | `/api/v2/animekai/proxy?url=&ref=` | HLS playlist proxy |
 
 ---
 
@@ -139,42 +111,42 @@ npm run start
 
 ### Get Trending Anime
 ```bash
-curl "http://localhost:3000/api/v2/hianime/home"
+curl "http://localhost:3000/api/v2/anixo/home"
 ```
 
 ### Search for Anime
 ```bash
-curl "http://localhost:3000/api/v2/hianime/search?q=attack%20on%20titan&page=1"
+curl "http://localhost:3000/api/v2/anixo/search?q=attack%20on%20titan&page=1"
 ```
 
 ### Get Anime Details
 ```bash
-curl "http://localhost:3000/api/v2/hianime/anime/one-piece"
+curl "http://localhost:3000/api/v2/anixo/anime/21"
 ```
 
 ### Get Episode Servers
 ```bash
-curl "http://localhost:3000/api/v2/hianime/episode/servers?animeEpisodeId=one-piece&ep=1"
+curl "http://localhost:3000/api/v2/anixo/episode/servers?animeEpisodeId=21&ep=1"
 ```
 
 ### Advanced Search
 ```bash
-curl "http://localhost:3000/api/v2/hianime/search/advanced?q=titan&genres=action&type=movie&sort=score&page=1"
+curl "http://localhost:3000/api/v2/anixo/search/advanced?q=titan&genres=action&type=movie&sort=score&page=1"
 ```
 
 ### Get Schedule
 ```bash
-curl "http://localhost:3000/api/v2/hianime/schedule?date=2026-05-22&timezone=UTC"
+curl "http://localhost:3000/api/v2/anixo/schedule?date=2026-05-22&timezone=UTC"
 ```
 
-### Get Episode Sources (Anikuro)
+### Get Episode Sources (Anixo — MegaPlay m3u8)
 ```bash
-curl "http://localhost:3000/api/v2/anikuro/episode/sources?animeEpisodeId=199221:1&ep=1&server=anikoto&category=dub"
+curl "http://localhost:3000/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub"
 ```
 
-### Get Episode Sources (AnimeX — MegaPlay m3u8)
+### Get Episode Sources (AnimeKai — MegaVid m3u8)
 ```bash
-curl "http://localhost:3000/api/v2/animex/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub"
+curl "http://localhost:3000/api/v2/animekai/episode/sources?animeEpisodeId=one-piece-ewc5jc&ep=1&server=ani-hd&category=sub"
 ```
 
 ---
@@ -197,7 +169,6 @@ NODE_ENV=development         # Environment: development/production/test
 | Technology | Purpose |
 |------------|---------|
 | <img src="https://img.shields.io/badge/Hono-ee6c00?style=flat-square&logo=fire" height="20"> | Web framework |
-| <img src="https://img.shields.io/badge/Puppeteer-40B5A4?style=flat-square&logo=headless-browser" height="20"> | Headless browser scraping |
 | <img src="https://img.shields.io/badge/Cheerio-259BFF?style=flat-square" height="20"> | HTML parsing |
 | <img src="https://img.shields.io/badge/Axios-5A29E4?style=flat-square" height="20"> | HTTP client |
 | <img src="https://img.shields.io/badge/Pino-FFD43B?style=flat-square" height="20"> | Fast logging |
@@ -212,19 +183,11 @@ NODE_ENV=development         # Environment: development/production/test
 Shirayuki-Anime-API/
 ├── index.js                    # Entry point
 ├── src/
-│   ├── hianime/
-│   │   ├── controllers/        # Business logic
-│   │   ├── router/            # Route definitions
-│   │   └── scraper/           # Scraping utilities
-│   ├── anikuro/                # Streaming-only provider
-│   │   ├── controllers/
-│   │   ├── router/
-│   │   └── scraper/
 │   ├── anixo/                  # AniList listings + MegaPlay streaming
 │   │   ├── controllers/
 │   │   ├── router/
 │   │   └── scraper/
-│   ├── animex/                 # animex.one catalog + MegaPlay streaming
+│   ├── animekai/               # animekai.ro listings + MegaVid streaming
 │   │   ├── controllers/
 │   │   ├── router/
 │   │   └── scraper/
@@ -247,13 +210,9 @@ Shirayuki-Anime-API/
 
 ## 🔀 Server Alias Mapping
 
-| Alias | Provider |
-|-------|----------|
-| `hd-1` | megacloud |
-| `hd-2` | vidsrc |
-| `hd-3` | mycloud |
+> **Anixo** streams via MegaPlay: `megaplay` (AniList route) and `megaplay-mal` (MAL route).
 
-> **Anixo / AnimeX** stream via MegaPlay: `megaplay` (AniList route) and `megaplay-mal` (MAL route).
+> **AnimeKai** streams via MegaVid: `ani-hd`, `hd`, `hd-1`.
 
 ---
 

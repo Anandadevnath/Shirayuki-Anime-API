@@ -38,7 +38,9 @@
       "Bash(chmod +x ~/.cache/puppeteer/chrome/linux-147.0.7727.57/chrome-linux64/chrome ~/.cache/puppeteer/chrome-headless-shell/linux-147.0.7727.57/chrome-headless-shell-linux64/chrome-headless-shell)",
       "Bash(node -e \"import\\('puppeteer'\\).then\\(async p => { const b = await p.default.launch\\({headless:true, args:['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage']}\\); console.log\\('launch OK:', await b.version\\(\\)\\); await b.close\\(\\); }\\).catch\\(e => { console.error\\('LAUNCH FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
       "Bash(git rev-list *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)"
     ],
     "additionalDirectories": [
       "/tmp"

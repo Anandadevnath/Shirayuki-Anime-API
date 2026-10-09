@@ -2,7 +2,7 @@
 // single source of truth — it renders the HTML and also backs /endpoints.json.
 
 // Build the standard provider surface (listings + search + discover + streaming).
-const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy, seasons }) => {
+const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) => {
   const b = `/api/v2/${id}`;
   const listings = [
     { label: 'Home', path: `${b}/home`, desc: 'Spotlight, trending, popular, top-airing & seasonal rows.' },
@@ -10,13 +10,6 @@ const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy, se
     { label: 'Anime details', path: `${b}/anime/${anime}`, desc: 'Synopsis, score, studios, characters, relations.' },
     { label: 'Episodes', path: `${b}/anime/${anime}/episodes`, desc: 'Episode list with titles, fillers & air dates.' },
   ];
-  if (seasons) {
-    listings.push({
-      label: 'All seasons',
-      path: `${b}/seasons/${anime}`,
-      desc: 'All seasons/parts/movies of a franchise, ordered serially.',
-    });
-  }
   return {
     id,
     name,
@@ -62,51 +55,42 @@ export const API_CATALOG = {
   name: 'Shirayuki Anime API',
   tagline: 'A unified anime API across multiple providers — listings, search, metadata & HLS streaming.',
   providers: [
-    fullProvider({ id: 'hianime', name: 'HiAnime', accent: '#8b8cf7', source: 'HiAnime scrape', anime: 'one-piece', epId: 'one-piece', server: 'hd-1', proxy: false, seasons: true }),
     fullProvider({ id: 'anixo', name: 'Anixo', accent: '#f472b6', source: 'AniList + MegaPlay', anime: '21', epId: '21', server: 'megaplay', proxy: true }),
-    fullProvider({ id: 'animex', name: 'AnimeX', accent: '#fbbf24', source: 'animex.one + MegaPlay', anime: '21', epId: '21', server: 'megaplay', proxy: true }),
     {
-      id: 'anikuro',
-      name: 'Anikuro',
-      accent: '#34d399',
-      source: 'Anikuro (streaming only)',
-      groups: [
-        {
-          title: 'Streaming',
-          items: [
-            { label: 'Episode servers', path: '/api/v2/anikuro/episode/servers?animeEpisodeId=180745&ep=1', desc: 'Available servers for an episode.' },
-            { label: 'Episode sources', path: '/api/v2/anikuro/episode/sources?animeEpisodeId=199221:1&server=anikoto&category=dub', desc: 'Playable sources for an episode.' },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'nyaa',
-      name: 'Nyaa.si',
-      accent: '#3582F7',
-      source: 'nyaa.si (torrent index — returns .torrent URL + info hash, not m3u8)',
+      id: 'animekai',
+      name: 'AnimeKai',
+      accent: '#38bdf8',
+      source: 'animekai.ro scrape + MegaVid',
       groups: [
         {
           title: 'Listings',
           items: [
-            { label: 'Home', path: '/api/v2/nyaa/home', desc: 'Latest uploads across English-translated + Anime categories.' },
-            { label: 'A–Z list', path: '/api/v2/nyaa/azlist/A?page=1', desc: 'Browse a Nyaa category by letter (A = Anime, C = Anime English-translated, etc).' },
-            { label: 'Torrent details', path: '/api/v2/nyaa/anime/naruto', desc: 'Resolves the first search hit for the given name and returns its metadata, .torrent URL, info hash & file list. Numeric torrent IDs also work.' },
-            { label: 'Episodes', path: '/api/v2/nyaa/anime/one-piece/episodes', desc: 'Per-episode list (hianime-shape) — each row links to the best Nyaa torrent for that episode.' },
+            { label: 'Home', path: '/api/v2/animekai', desc: 'Spotlight, trending, top-airing, popular, latest-episode & recently-updated rows.' },
+            { label: 'A–Z list', path: '/api/v2/animekai/azlist/A?page=1', desc: 'Catalogue by letter (0-9, A-Z, other), paginated.' },
+            { label: 'Anime details', path: '/api/v2/animekai/anime/one-piece-ewc5jc', desc: 'Synopsis, score, genres, studios, relations & full episode list.' },
+            { label: 'Episodes', path: '/api/v2/animekai/anime/one-piece-ewc5jc/episodes', desc: 'Episode list with sub/dub availability and range chips.' },
           ],
         },
         {
           title: 'Search',
           items: [
-            { label: 'Search', path: '/api/v2/nyaa/search?q=naruto&page=1', desc: 'Search by keyword with category / filter / sort.' },
-            { label: 'Suggestions', path: '/api/v2/nyaa/search/suggestion?q=naruto', desc: 'Top titles returned for a keyword.' },
+            { label: 'Search', path: '/api/v2/animekai/search?q=naruto&page=1', desc: 'Keyword search (AnimeKai /filter).' },
+            { label: 'Advanced search', path: '/api/v2/animekai/search/advanced?q=naruto&type=tv&status=currently-airing&sort=score&page=1', desc: 'Filter by type, genre, season, year, status, language & sort.' },
+            { label: 'Suggestions', path: '/api/v2/animekai/search/suggestion?q=naruto', desc: 'Autocomplete suggestions.' },
           ],
         },
         {
-          title: 'Torrents (hand off to WebTorrent client)',
+          title: 'Discover',
           items: [
-            { label: 'Episode files', path: '/api/v2/nyaa/episode/servers?torrentId=2123254', desc: 'List of video files in the torrent (treated as selectable "servers").' },
-            { label: 'Episode sources', path: '/api/v2/nyaa/episode/sources?torrentId=2123254&ep=1&category=dub', desc: 'Pick the right file inside the supplied torrent. If the torrent doesn\'t contain the requested episode, the endpoint transparently searches nyaa for a torrent that does and reroutes — so you can pass any torrentId from the franchise and still land on ep N\'s file. Returns the .torrent URL + info hash. `category=dub` picks the English audio track; omit or use `category=sub` for Japanese. NOT an m3u8 — feed into WebTorrent/Transmission/etc.' },
+            { label: 'Schedule', path: '/api/v2/animekai/schedule?date=2026-10-09', desc: 'Airing schedule for a date (defaults to today, UTC).' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode servers', path: '/api/v2/animekai/episode/servers?animeEpisodeId=one-piece-ewc5jc&ep=1', desc: 'Available sub/dub servers (Ani-HD, HD, HD-1) for an episode.' },
+            { label: 'Episode sources', path: '/api/v2/animekai/episode/sources?animeEpisodeId=one-piece-ewc5jc&ep=1&server=ani-hd&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaVid player chain.' },
+            { label: 'Stream proxy', path: '/api/v2/animekai/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist for aniwatchtv/megavid hosts.', noTry: true },
           ],
         },
       ],
