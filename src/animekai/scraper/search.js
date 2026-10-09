@@ -127,6 +127,54 @@ export const getAnimeKaiSearch = async ({ q, page } = {}) => {
 };
 
 // Advanced search maps onto AnimeKai's /filter query params.
+// A single execution given normalized filter values. Reused so we can relax
+// (drop) filters and re-query when a strict combination yields no results.
+const runAdvancedFilter = async ({
+  keyword,
+  types,
+  genres,
+  season,
+  year,
+  statuses,
+  sort,
+  languages,
+  page,
+}) => {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  if (keyword) params.set('keyword', keyword);
+  types.forEach((t) => params.append('term_type[]', t));
+  genres.forEach((g) => params.append('genre[]', g));
+  statuses.forEach((s) => params.append('status[]', s));
+  if (Number(season) > 0) params.set('season[]', String(Number(season)));
+  if (Number(year) > 0) params.set('year[]', String(Number(year)));
+  if (sort) params.set('sort', sort);
+  languages.forEach((l) => params.append('language[]', l));
+
+  const url = `${ANIMEKAI_BASE_URL}/filter?${params.toString()}`;
+  const html = await pageGet(url, `${ANIMEKAI_BASE_URL}/home`);
+  const $ = load(html);
+
+  const totalRaw = $('.list-count').first().text().replace(/[^\d]/g, '');
+
+  return {
+    source: url,
+    query: keyword || null,
+    filters: {
+      types,
+      genres,
+      season: Number(season) > 0 ? Number(season) : null,
+      year: Number(year) > 0 ? Number(year) : null,
+      status: statuses,
+      sort: sort || null,
+      language: languages,
+    },
+    total: totalRaw ? Number(totalRaw) : null,
+    pagination: parsePagination($, page),
+    results: listResults($),
+  };
+};
+
 export const getAnimeKaiSearchAdvanced = async ({
   q,
   type,
@@ -139,34 +187,25 @@ export const getAnimeKaiSearchAdvanced = async ({
   page,
 } = {}) => {
   const normalizedPage = Math.max(1, Number(page) || 1);
-  const params = new URLSearchParams();
-  params.set('page', String(normalizedPage));
 
   const keyword = String(q || '').trim();
-  if (keyword) params.set('keyword', keyword);
 
   const VALID_TYPES = ['movie', 'music', 'ona', 'ova', 'special', 'tv', 'tv-short', 'tv-special'];
-  const typeList = String(type || '')
+  const types = String(type || '')
     .split(',')
     .map((t) => t.trim().toLowerCase())
     .filter((t) => VALID_TYPES.includes(t));
-  typeList.forEach((t) => params.append('term_type[]', t));
 
-  const genreList = String(genres || '')
+  const GENRES_IN = String(genres || '')
     .split(',')
     .map((g) => g.trim().toLowerCase())
     .filter(Boolean);
-  genreList.forEach((g) => params.append('genre[]', g));
 
   const VALID_STATUS = ['finished-airing', 'currently-airing', 'not-yet-aired'];
-  const statusList = String(status || '')
+  const statuses = String(status || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((s) => VALID_STATUS.includes(s));
-  statusList.forEach((s) => params.append('status[]', s));
-
-  if (Number(season) > 0) params.set('season[]', String(Number(season)));
-  if (Number(year) > 0) params.set('year[]', String(Number(year)));
 
   const VALID_SORTS = [
     'default',
@@ -179,35 +218,40 @@ export const getAnimeKaiSearchAdvanced = async ({
     'number_of_episodes',
   ];
   const sortVal = String(sort || '').toLowerCase();
-  if (sortVal && VALID_SORTS.includes(sortVal)) params.set('sort', sortVal);
+  const sortClean = VALID_SORTS.includes(sortVal) ? sortVal : null;
 
   const VALID_LANGS = ['sub', 'dub'];
-  const langList = String(language || '')
+  const languages = String(language || '')
     .split(',')
     .map((l) => l.trim().toLowerCase())
     .filter((l) => VALID_LANGS.includes(l));
-  langList.forEach((l) => params.append('language[]', l));
 
-  const url = `${ANIMEKAI_BASE_URL}/filter?${params.toString()}`;
-  const html = await pageGet(url, `${ANIMEKAI_BASE_URL}/home`);
-  const $ = load(html);
+  const seasonVal = Number(season) > 0 ? Number(season) : null;
+  const yearVal = Number(year) > 0 ? Number(year) : null;
 
-  const totalRaw = $('.list-count').first().text().replace(/[^\d]/g, '');
-
-  return {
-    source: url,
-    query: keyword || null,
-    filters: {
-      types: typeList,
-      genres: genreList,
-      season: Number(season) > 0 ? Number(season) : null,
-      year: Number(year) > 0 ? Number(year) : null,
-      status: statusList,
-      sort: VALID_SORTS.includes(sortVal) ? sortVal : null,
-      language: langList,
-    },
-    total: totalRaw ? Number(totalRaw) : null,
-    pagination: parsePagination($, normalizedPage),
-    results: listResults($),
+  const base = {
+    keyword,
+    types,
+    genres: GENRES_IN,
+    season: seasonVal,
+    year: yearVal,
+    sort: sortClean,
+    languages,
+    page: normalizedPage,
   };
+
+  // 1) Run the strict query with every requested filter.
+  let out = await runAdvancedFilter({ ...base, statuses });
+
+  // 2) Auto-relax: if the strict combination yields nothing but a status filter
+  //    was applied, re-run WITHOUT the status filter (the most common cause of a
+  //    contradictory "no results" — e.g. a finished title marked currently-airing)
+  //    and mark the response with fallback:true so callers know filters were relaxed.
+  let fallback = false;
+  if (out.results.length === 0 && statuses.length > 0) {
+    fallback = true;
+    out = await runAdvancedFilter({ ...base, statuses: [] });
+  }
+
+  return { ...out, fallback };
 };

@@ -102,6 +102,20 @@ export const getAnimeKaiEpisodeSources = async ({
       forced: Boolean(t.forced),
     }));
 
+  // Intro/outro skip timestamps come from the `chapters` array in the payload.
+  const initialChapters = Array.isArray(sourcePayload.chapters) ? sourcePayload.chapters : [];
+  const intro =
+    initialChapters.find((c) => /intro|opening|op/i.test(String(c.title || ''))) || null;
+  const outro =
+    initialChapters.find((c) => /outro|ending|end/i.test(String(c.title || ''))) || null;
+  const toTimestamp = (c) =>
+    c
+      ? {
+          start: Number(c.start) || 0,
+          end: Number(c.end) || 0,
+        }
+      : null;
+
   const usedServer = pool.find((s) => s.linkId === target.linkId)
     ? target
     : pool.find((s) => s.name !== target.name) || target;
@@ -131,6 +145,7 @@ export const getAnimeKaiEpisodeSources = async ({
       },
     ],
     tracks,
-    providers: Array.isArray(sourcePayload.providers) ? sourcePayload.providers : [],
+    intro: toTimestamp(intro),
+    outro: toTimestamp(outro),
   };
 };

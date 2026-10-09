@@ -31,14 +31,20 @@ const buildPlayUrl = (c, animeEpisodeId, ep, server, category) => {
   return `${origin}/api/v2/animekai/play?${params}`;
 };
 
-const withProxiedSources = (c, data, { animeEpisodeId, ep, server, category } = {}) => ({
-  ...data,
-  playUrl: buildPlayUrl(c, animeEpisodeId, ep, server, category),
-  sources: (data.sources || []).map((source) => ({
+const withProxiedSources = (c, data, { animeEpisodeId, ep, server, category } = {}) => {
+  const origin = `${new URL(c.req.url).protocol}//${new URL(c.req.url).host}`;
+  const sources = (data.sources || []).map((source) => ({
     ...source,
     proxyM3u8: buildPlayUrl(c, animeEpisodeId, ep, server, category),
-  })),
-});
+    embeddedUrl: source.url
+      ? `${origin}/api/v2/animekai/proxy?url=${encodeURIComponent(source.url)}&ref=${encodeURIComponent(source.referer || 'https://megavid.buzz/')}`
+      : null,
+  }));
+  return {
+    ...data,
+    sources,
+  };
+};
 
 export const animekaiEpisodeSourcesController = async (c) => {
   try {
