@@ -21,19 +21,29 @@ const isAllowedHost = (urlStr) => {
   }
 };
 
-const looksLikePlaylist = (url, contentType) =>
+const looksLikePlaylist = (url, contentType, body) =>
   /\.m3u8(\?|$)/i.test(url) ||
   /mpegurl/i.test(contentType || '') ||
-  /application\/x-mpegURL/i.test(contentType || '');
+  /application\/x-mpegURL/i.test(contentType || '') ||
+  /^\s*#EXTM3U/.test(Buffer.from(body || ' ').subarray(0, 64).toString('utf-8'));
 
 // Build a self-referencing proxy URL for a child resource of the playlist.
-const buildProxyUrl = (basePath, absoluteUrl, referer) =>
-  `${basePath}?url=${encodeURIComponent(absoluteUrl)}&ref=${encodeURIComponent(referer)}`;
+// `ext` (e.g. ".m3u8", ".ts") is appended to the path so strict HLS parsers
+// (ffmpeg, some native players) accept the segment/variant without needing a
+// file extension, while the real upstream URL stays in the query string.
+const buildProxyUrl = (basePath, absoluteUrl, referer, ext = '') => {
+  const path = ext ? `${basePath}/stream${ext}` : basePath;
+  return `${path}?url=${encodeURIComponent(absoluteUrl)}&ref=${encodeURIComponent(referer)}`;
+};
 
 // Rewrite a playlist so every URI (segments, variants, keys) is routed back
 // through this proxy, preserving the referer needed by the upstream CDN.
 const rewritePlaylist = (body, playlistUrl, referer, basePath) => {
   const resolve = (uri) => new URL(uri, playlistUrl).toString();
+  // A master playlist references child variants (.m3u8); a media playlist
+  // references TS segments (.ts). Detect which one we're rewriting so the
+  // proxied child URLs carry a recognized extension.
+  const childExt = /#EXT-X-STREAM-INF/i.test(body) ? '.m3u8' : '.ts';
 
   return body
     .split('\n')
@@ -52,9 +62,17 @@ const rewritePlaylist = (body, playlistUrl, referer, basePath) => {
 
       // Plain resource line (segment or variant playlist).
       const abs = resolve(trimmed);
-      return buildProxyUrl(basePath, abs, referer);
+      return buildProxyUrl(basePath, abs, referer, childExt);
     })
     .join('\n');
+};
+
+// The MegaVid/aniwatchtv CDN obfuscates TS segments by serving them with a
+// fake `image/jpeg` content-type. TS sync bytes (0x47) repeat every 188 bytes,
+// so a 3-point check reliably identifies them.
+const isTransportStream = (buf) => {
+  if (buf.length < 188 * 3) return false;
+  return buf[0] === 0x47 && buf[188] === 0x47 && buf[376] === 0x47;
 };
 
 export const proxyStream = async ({ url, referer, basePath }) => {
@@ -94,7 +112,7 @@ export const proxyStream = async ({ url, referer, basePath }) => {
     throw err;
   }
 
-  if (looksLikePlaylist(url, contentType)) {
+  if (looksLikePlaylist(url, contentType, upstream.data)) {
     const text = Buffer.from(upstream.data).toString('utf-8');
     const rewritten = rewritePlaylist(text, url, upstreamReferer, basePath);
     return {
@@ -104,9 +122,17 @@ export const proxyStream = async ({ url, referer, basePath }) => {
     };
   }
 
+  const binary = Buffer.from(upstream.data);
+  // Relabel MPEG-TS segments served with a spoofed content-type so strict
+  // HLS/MSE players don't reject them.
+  const contentTypeOut =
+    isTransportStream(binary) && !/^video\//i.test(contentType)
+      ? 'video/mp2t'
+      : contentType || 'application/octet-stream';
+
   return {
     kind: 'binary',
-    body: Buffer.from(upstream.data),
-    contentType: contentType || 'application/octet-stream',
+    body: binary,
+    contentType: contentTypeOut,
   };
 };

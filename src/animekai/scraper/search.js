@@ -31,28 +31,44 @@ const parseGridCard = ($) => (_, el) => {
   };
 };
 
-const parsePagination = ($) => {
+// Pagination uses Bootstrap-style page-items. The site marks the current page
+// with .active and Next/Last links with rel="next"/rel="last". On out-of-range
+// pages (page > real last) there is no .active and no rel="next"/"last" at all,
+// so the requested page number is used as the currentPage fallback.
+const parsePagination = ($, fallbackPage = 1) => {
   const items = $('.pagination .page-item');
   if (!items.length) {
-    return { currentPage: 1, hasNextPage: false, totalPages: 1 };
+    return { currentPage: fallbackPage, hasNextPage: false, totalPages: 1 };
   }
 
-  const currentPage = Number($('.pagination .page-item.active').first().text().trim()) || 1;
+  const currentPage =
+    Number($('.pagination .page-item.active').first().text().trim()) || fallbackPage;
 
-  // The "»" last item is a next link when it contains an anchor.
-  const lastItem = $('.pagination .page-item').last();
-  const hasNextPage = lastItem.find('a').length > 0;
+  // rel="next" only exists while more pages follow; it disappears on the last
+  // page and on out-of-range pages.
+  const hasNextPage = $('.pagination a[rel="next"]').length > 0;
 
-  // Highest plain-numbered page visible.
-  let totalPages = currentPage;
+  // True last page from the rel="last" link, else the highest visible number.
+  let totalPages = 0;
   $('.pagination .page-item').each((_, el) => {
     const n = Number($(el).text().trim());
     if (Number.isFinite(n) && n > totalPages) totalPages = n;
   });
+  const lastHref = $('.pagination a[rel="last"]').attr('href');
+  if (lastHref) {
+    const m = lastHref.match(/page=(\d+)/i);
+    if (m) totalPages = Math.max(totalPages, Number(m[1]));
+  }
   if (hasNextPage) totalPages = Math.max(totalPages, currentPage + 1);
 
   return { currentPage, hasNextPage, totalPages };
 };
+
+// Grid cards live in #list-items. Selecting a bare .aitem also matches the
+// "Top Rated" sidebar cards (a.aitem.side-item), which have no poster, href,
+// type or genres and must not appear as results.
+const listResults = ($) => $('#list-items .aitem').map(parseGridCard($)).get();
+
 
 export const getAnimeKaiAzList = async ({ letter, page } = {}) => {
   const raw = String(letter || '').trim();
@@ -81,8 +97,8 @@ export const getAnimeKaiAzList = async ({ letter, page } = {}) => {
   return {
     source: url,
     letter: normalized,
-    pagination: parsePagination($),
-    results: $('.aitem').map(parseGridCard($)).get(),
+    pagination: parsePagination($, normalizedPage),
+    results: listResults($),
   };
 };
 
@@ -105,8 +121,8 @@ export const getAnimeKaiSearch = async ({ q, page } = {}) => {
     source: url,
     query: keyword,
     total: totalRaw ? Number(totalRaw) : null,
-    pagination: parsePagination($),
-    results: $('.aitem').map(parseGridCard($)).get(),
+    pagination: parsePagination($, normalizedPage),
+    results: listResults($),
   };
 };
 
@@ -191,7 +207,7 @@ export const getAnimeKaiSearchAdvanced = async ({
       language: langList,
     },
     total: totalRaw ? Number(totalRaw) : null,
-    pagination: parsePagination($),
-    results: $('.aitem').map(parseGridCard($)).get(),
+    pagination: parsePagination($, normalizedPage),
+    results: listResults($),
   };
 };
