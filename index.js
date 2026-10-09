@@ -21,6 +21,7 @@ import animekaiEpisodeServersRouter from "./src/animekai/router/episode-servers.
 import animekaiEpisodeSourcesRouter from "./src/animekai/router/streaming-server.js";
 import animekaiProxyRouter from "./src/animekai/router/proxy.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
+import { createPlayPage } from "./src/ui/play-page.js";
 
 const app = new Hono();
 
@@ -59,6 +60,9 @@ app.route("/api/v2/animekai", animekaiListingsRouter);
 app.route("/api/v2/animekai/episode", animekaiEpisodeServersRouter);
 app.route("/api/v2/animekai/episode/sources", animekaiEpisodeSourcesRouter);
 app.route("/api/v2/animekai/proxy", animekaiProxyRouter);
+
+// Built-in HLS player preview page (plays proxyM3u8 through hls.js).
+app.route("/api/v2/animekai/play", createPlayPage("/api/v2/animekai/episode/sources"));
 
 app.notFound((c) => {
   return c.json(
