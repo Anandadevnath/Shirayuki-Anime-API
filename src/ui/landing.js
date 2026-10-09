@@ -55,7 +55,6 @@ export const API_CATALOG = {
   name: 'Shirayuki Anime API',
   tagline: 'A unified anime API across multiple providers — listings, search, metadata & HLS streaming.',
   providers: [
-    fullProvider({ id: 'anixo', name: 'Anixo', accent: '#f472b6', source: 'AniList + MegaPlay', anime: '21', epId: '21', server: 'megaplay', proxy: true }),
     {
       id: 'animekai',
       name: 'AnimeKai',
@@ -90,7 +89,6 @@ export const API_CATALOG = {
           items: [
             { label: 'Episode servers', path: '/api/v2/animekai/episode/servers?animeEpisodeId=one-piece-ewc5jc&ep=1', desc: 'Available sub/dub servers (Ani-HD, HD, HD-1) for an episode.' },
             { label: 'Episode sources', path: '/api/v2/animekai/episode/sources?animeEpisodeId=one-piece-ewc5jc&ep=1&server=ani-hd&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaVid player chain.' },
-            { label: 'Stream proxy', path: '/api/v2/animekai/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist for aniwatchtv/megavid hosts.', noTry: true },
           ],
         },
       ],

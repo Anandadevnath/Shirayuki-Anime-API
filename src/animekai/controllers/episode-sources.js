@@ -23,18 +23,20 @@ const setCachedSources = (key, value) => {
   });
 };
 
-// Build an absolute, ready-to-play proxy URL for an m3u8 that needs a referer.
-const buildProxyUrl = (c, url, referer) => {
+// Build a dynamic source URL to the built-in player page (/play) for this episode.
+const buildPlayUrl = (c, animeEpisodeId, ep, server, category) => {
   const req = new URL(c.req.url);
   const origin = `${req.protocol}//${req.host}`;
-  return `${origin}/api/v2/animekai/proxy?url=${encodeURIComponent(url)}&ref=${encodeURIComponent(referer)}`;
+  const params = `animeEpisodeId=${encodeURIComponent(animeEpisodeId || '')}&ep=${encodeURIComponent(ep || '')}&server=${encodeURIComponent(server || '')}&category=${encodeURIComponent(category || '')}`;
+  return `${origin}/api/v2/animekai/play?${params}`;
 };
 
-const withProxiedSources = (c, data) => ({
+const withProxiedSources = (c, data, { animeEpisodeId, ep, server, category } = {}) => ({
   ...data,
+  playUrl: buildPlayUrl(c, animeEpisodeId, ep, server, category),
   sources: (data.sources || []).map((source) => ({
     ...source,
-    proxyM3u8: source.url ? buildProxyUrl(c, source.url, source.referer) : null,
+    proxyM3u8: buildPlayUrl(c, animeEpisodeId, ep, server, category),
   })),
 });
 
@@ -70,7 +72,7 @@ export const animekaiEpisodeSourcesController = async (c) => {
       const extractionTimeSec = Number(((Date.now() - startTime) / 1000).toFixed(3));
       return c.json({
         success: true,
-        data: withProxiedSources(c, cachedData),
+        data: withProxiedSources(c, cachedData, { animeEpisodeId, ep, server, category }),
         extractionTimeSec,
       });
     }
@@ -81,7 +83,7 @@ export const animekaiEpisodeSourcesController = async (c) => {
     const extractionTimeSec = Number(((Date.now() - startTime) / 1000).toFixed(3));
     return c.json({
       success: true,
-      data: withProxiedSources(c, data),
+      data: withProxiedSources(c, data, { animeEpisodeId, ep, server, category }),
       extractionTimeSec,
     });
   } catch (error) {
