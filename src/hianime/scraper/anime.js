@@ -2,7 +2,7 @@ import { load } from '../../utils/scrapper-deps.js';
 import {
   HIANIME_BASE_URL,
   pageGet,
-  ajaxGet,
+  themeGet,
   toAbsoluteUrl,
   parseNumber,
   parseAnimeSlug,
@@ -149,7 +149,7 @@ export const getHianimeEpisodes = async ({ animeId, episodeId } = {}) => {
     throw err;
   }
 
-  const data = await ajaxGet(`/ajax/episode/list/${id}`, `${HIANIME_BASE_URL}/${raw}`);
+  const data = await themeGet(`/episode/list/${id}`, `${HIANIME_BASE_URL}/${raw}`);
   const html = data?.html;
   const $ = load(html || '');
 
@@ -167,7 +167,7 @@ export const getHianimeEpisodes = async ({ animeId, episodeId } = {}) => {
     .get();
 
   return {
-    source: `${HIANIME_BASE_URL}/ajax/episode/list/${id}`,
+    source: `${HIANIME_BASE_URL}/api/theme/episode/list/${id}`,
     id,
     slug: parsed?.slug || null,
     title: $('.film-name').first().text().trim() || null,

@@ -37,11 +37,13 @@ export const extractFlwItems = ($, selector) =>
     .filter((r) => r.id || r.title);
 
 // Pagination on HiAnime uses Bootstrap-style page-items. The current page is
-// marked .active and Next links carry rel="next".
+// marked .active and Next/Last links carry a `next`/`last` page-link (hianime.at
+// uses title="Next"/title="Last" links, hianime.dk used rel="next"/rel="last").
 export const extractPagination = ($, queryPage = 1) => {
   const currentPage =
     Number($('.pagination .page-item.active').first().text().trim()) || Number(queryPage) || 1;
-  const hasNextPage = $('.pagination a[rel="next"]').length > 0;
+  const hasNextPage =
+    $('.pagination a[title="Next"], .pagination a[rel="next"]').length > 0;
 
   let totalPages = 0;
   $('.pagination .page-item').each((_, el) => {
@@ -50,7 +52,9 @@ export const extractPagination = ($, queryPage = 1) => {
   });
 
   // Only consider the top-level pagination nav (search/browse pages).
-  const lastHref = $('.pagination a[rel="last"]').attr('href');
+  const lastHref =
+    $('.pagination a[title="Last"]').attr('href') ||
+    $('.pagination a[rel="last"]').attr('href');
   if (lastHref) {
     const m = lastHref.match(/page=(\d+)/i);
     if (m) totalPages = Math.max(totalPages, Number(m[1]));

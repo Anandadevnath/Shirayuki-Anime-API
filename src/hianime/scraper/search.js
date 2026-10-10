@@ -56,5 +56,6 @@ export const getHianimeGenre = async ({ genre, page } = {}) => {
     throw err;
   }
   const queryPage = Math.max(1, Number(page) || 1);
-  return fetchListing({ path: `/genre/${clean}?page=${queryPage}`, queryPage });
+  // hianime.at namespaces genres at /genres/{genre} (hianime.dk used /genre/).
+  return fetchListing({ path: `/genres/${clean}?page=${queryPage}`, queryPage });
 };

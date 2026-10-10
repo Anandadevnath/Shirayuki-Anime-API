@@ -1,7 +1,7 @@
 import { load } from '../../utils/scrapper-deps.js';
 import {
   HIANIME_BASE_URL,
-  ajaxGet,
+  themeGet,
   parseAnimeSlug,
 } from './_shared.js';
 import { getHianimeEpisodes } from './anime.js';
@@ -67,14 +67,14 @@ export const getHianimeEpisodeServers = async ({ episodeId, animeEpisodeId, ep }
     resolvedEp = target.episode;
   }
 
-  const data = await ajaxGet(
-    `/ajax/episode/servers?episodeId=${encodeURIComponent(resolvedId)}`,
+  const data = await themeGet(
+    `/episode/servers?episodeId=${encodeURIComponent(resolvedId)}`,
     `${HIANIME_BASE_URL}/watch/${animeRef || resolvedId}`,
   );
   const { sub, dub } = parseServersHtml(data?.html || '');
 
   return {
-    source: `${HIANIME_BASE_URL}/ajax/episode/servers?episodeId=${resolvedId}`,
+    source: `${HIANIME_BASE_URL}/api/theme/episode/servers?episodeId=${resolvedId}`,
     episodeId: resolvedId,
     episode: resolvedEp || null,
     servers: {

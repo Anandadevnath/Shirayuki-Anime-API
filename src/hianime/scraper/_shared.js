@@ -1,6 +1,6 @@
 import { load, axios } from '../../utils/scrapper-deps.js';
 
-export const HIANIME_BASE_URL = 'https://hianime.dk';
+export const HIANIME_BASE_URL = 'https://hianime.at';
 export const MEGAPLAY_BASE_URL = 'https://megaplay.buzz';
 export const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -41,6 +41,17 @@ export const pageGet = async (url, referer) => {
 
 export const ajaxGet = async (path, referer) => {
   const { data } = await axios.get(`${HIANIME_BASE_URL}${path}`, {
+    proxy: false,
+    timeout: 20000,
+    headers: ajaxHeaders(referer),
+  });
+  return data;
+};
+
+// The hianime.at theme loads episodes/servers through its own rest API, not
+// the classic /ajax/* paths. Response shape is the same JSON: { status, html }.
+export const themeGet = async (path, referer) => {
+  const { data } = await axios.get(`${HIANIME_BASE_URL}/api/theme${path}`, {
     proxy: false,
     timeout: 20000,
     headers: ajaxHeaders(referer),
