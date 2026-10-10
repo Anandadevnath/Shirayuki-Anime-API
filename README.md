@@ -93,7 +93,7 @@ npm run start
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v2/animekai` | Spotlight, trending, top-airing, popular, latest-episode & recently-updated |
+| `GET` | `/api/v2/animekai` | Spotlight, trending, top-airing, popular, latest-episode, recently-updated, new-release, newly-added, just-completed, upcoming & top-trending (day/week/month) |
 | `GET` | `/api/v2/animekai/azlist/:letter?page=1` | Catalogue by letter (0-9, A-Z, other) |
 | `GET` | `/api/v2/animekai/anime/:animeId` | Full anime details |
 | `GET` | `/api/v2/animekai/anime/:animeId/episodes` | Episode list |
