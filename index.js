@@ -11,6 +11,7 @@ import hianimeListingsRouter from "./src/hianime/router/listings.js";
 import hianimeEpisodeServersRouter from "./src/hianime/router/episode-servers.js";
 import hianimeEpisodeSourcesRouter from "./src/hianime/router/streaming-server.js";
 import hianimeProxyRouter from "./src/hianime/router/proxy.js";
+import scraplingRouter from "./src/scrapling/router/index.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
 import { createGenericPlayer } from "./src/ui/generic-player.js";
@@ -44,6 +45,8 @@ app.route("/api/v2/hianime", hianimeListingsRouter);
 app.route("/api/v2/hianime/episode", hianimeEpisodeServersRouter);
 app.route("/api/v2/hianime/episode/sources", hianimeEpisodeSourcesRouter);
 app.route("/api/v2/hianime/proxy", hianimeProxyRouter);
+
+app.route("/api/v2/scrapling", scraplingRouter);
 
 // Built-in HLS player preview page (plays proxyM3u8 through hls.js).
 app.route("/api/v2/animekai/play", createPlayPage("/api/v2/animekai/episode/sources"));
