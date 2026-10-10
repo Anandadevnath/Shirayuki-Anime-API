@@ -1,6 +1,19 @@
 import { getHianimeEpisodeServers } from './episode-servers.js';
-import { resolveMegaplay } from './megaplay.js';
+import { resolveMegaplay, decodeServerHash as decodeMegaplayHash } from './megaplay.js';
+import { resolveVidplay, decodeServerHash as decodeVidplayHash } from './vidplay.js';
 import { normalizeCategory, normalizeServerName } from './_shared.js';
+
+// Hosts that resolve through the megaplay (getSources) flow.
+const MEGAPLAY_EMBED_RE = /(?:bibiemb|vivibebe|megaplay|megacloud|vidcloud|ncdn|mcloud)/i;
+// Anything else (otakuhg, otakuvid, playmogo, ...) goes through the vidplay flow.
+const isMegaplayEmbed = (embed) => /^https?:\/\//i.test(embed || '') && MEGAPLAY_EMBED_RE.test(embed);
+
+const tryResolve = async (server) => {
+  if (!server?.hash) throw new Error('server has no hash to resolve');
+  const embed = decodeMegaplayHash(server.hash) || decodeVidplayHash(server.hash);
+  if (isMegaplayEmbed(embed)) return resolveMegaplay(server.hash);
+  return resolveVidplay(server.hash);
+};
 
 export const getHianimeEpisodeSources = async ({ episodeId, animeEpisodeId, ep, server, category } = {}) => {
   const normalizedCategory = normalizeCategory(category);
@@ -20,16 +33,17 @@ export const getHianimeEpisodeSources = async ({ episodeId, animeEpisodeId, ep, 
     pool = pools.sub;
   }
 
-  const selected =
-    pool.find((s) => s.serverId === targetServer || s.serverId === targetServer.replace(/-/g, '')) ||
-    pool[0];
+  // Order the servers: requested one first, then the rest in list order, so a
+  // dead server doesn't block playback.
+  const isMatch = (s) => s.serverId === targetServer || s.serverId === targetServer.replace(/-/g, '');
+  const ordered = [...pool.filter(isMatch), ...pool.filter((s) => !isMatch(s))];
 
   const base = {
     source: serverData.source,
     episodeId: serverData.episodeId,
     category: cat,
-    server: selected?.name || null,
-    embed: selected?.embed || null,
+    server: null,
+    embed: null,
     streamResolved: false,
     reason: null,
     note: null,
@@ -40,26 +54,36 @@ export const getHianimeEpisodeSources = async ({ episodeId, animeEpisodeId, ep, 
     servers: serverData.servers,
   };
 
-  if (!selected?.hash) {
+  if (!ordered.length) {
     return { ...base, reason: 'resolution-failed', note: 'No usable server selected' };
   }
 
-  try {
-    const resolved = await resolveMegaplay(selected.hash);
-    return {
-      ...base,
-      streamResolved: true,
-      link: resolved.link,
-      tracks: resolved.tracks || [],
-      intro: resolved.intro,
-      outro: resolved.outro,
-    };
-  } catch (error) {
-    // The server list is still useful — degrade instead of failing outright.
-    return {
-      ...base,
-      reason: 'resolution-failed',
-      note: error.message,
-    };
+  let lastError = null;
+  for (const candidate of ordered) {
+    try {
+      const resolved = await tryResolve(candidate);
+      return {
+        ...base,
+        server: candidate.name,
+        embed: candidate.embed || resolved.embed || null,
+        streamResolved: true,
+        link: resolved.link,
+        tracks: resolved.tracks || [],
+        intro: resolved.intro,
+        outro: resolved.outro,
+      };
+    } catch (error) {
+      lastError = error;
+      // keep trying the next server
+    }
   }
+
+  // Every server in the category failed — degrade instead of dying.
+  return {
+    ...base,
+    server: ordered[0]?.name || null,
+    embed: ordered[0]?.embed || null,
+    reason: 'resolution-failed',
+    note: lastError?.message || 'all servers failed to resolve',
+  };
 };

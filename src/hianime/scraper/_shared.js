@@ -69,13 +69,17 @@ export const parseAnimeSlug = (raw) => {
 };
 
 // Map a query value to a Hianime server name. Defaults to HD-1.
+// Accepts HD-1..HD-5 (both with/without dash) and returns the canonical name,
+// or falls back to HD-1 when the value is empty/unrecognized.
 export const normalizeServerName = (server) => {
   const raw = String(server || 'HD-1').replace(/\s+/g, '').toUpperCase();
-  if (!raw || raw === 'HD-1' || raw === 'HD1') return 'HD-1';
-  return 'HD-2';
+  const n = (raw.match(/^HD-?(\d+)$/) || [])[1];
+  const num = n && Number(n) >= 1 && Number(n) <= 5 ? Number(n) : 1;
+  return `HD-${num}`;
 };
 
 export const normalizeCategory = (category) => {
   const value = String(category || 'sub').toLowerCase().trim();
   return value === 'dub' || value === 'd' ? 'dub' : 'sub';
 };
+
