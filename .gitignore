@@ -4,3 +4,7 @@ dist/
 *.log
 .DS_Store
 save.txt
+# Python virtualenv + bytecode
+.venv/
+__pycache__/
+*.py[cod]

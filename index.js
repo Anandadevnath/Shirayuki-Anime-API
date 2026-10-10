@@ -7,6 +7,11 @@ import animekaiListingsRouter from "./src/animekai/router/listings.js";
 import animekaiEpisodeServersRouter from "./src/animekai/router/episode-servers.js";
 import animekaiEpisodeSourcesRouter from "./src/animekai/router/streaming-server.js";
 import animekaiProxyRouter from "./src/animekai/router/proxy.js";
+import hianimeListingsRouter from "./src/hianime/router/listings.js";
+import hianimeEpisodeServersRouter from "./src/hianime/router/episode-servers.js";
+import hianimeEpisodeSourcesRouter from "./src/hianime/router/streaming-server.js";
+import hianimeProxyRouter from "./src/hianime/router/proxy.js";
+import scraplingRouter from "./src/scrapling/router/index.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
 import { createGenericPlayer } from "./src/ui/generic-player.js";
@@ -36,8 +41,17 @@ app.route("/api/v2/animekai/episode", animekaiEpisodeServersRouter);
 app.route("/api/v2/animekai/episode/sources", animekaiEpisodeSourcesRouter);
 app.route("/api/v2/animekai/proxy", animekaiProxyRouter);
 
+app.route("/api/v2/hianime", hianimeListingsRouter);
+app.route("/api/v2/hianime/episode", hianimeEpisodeServersRouter);
+app.route("/api/v2/hianime/episode/sources", hianimeEpisodeSourcesRouter);
+app.route("/api/v2/hianime/proxy", hianimeProxyRouter);
+
+app.route("/api/v2/scrapling", scraplingRouter);
+
 // Built-in HLS player preview page (plays proxyM3u8 through hls.js).
 app.route("/api/v2/animekai/play", createPlayPage("/api/v2/animekai/episode/sources"));
+
+app.route("/api/v2/hianime/play", createPlayPage("/api/v2/hianime/episode/sources"));
 
 // Generic "copy & paste this URL and it plays" HLS player.
 // /api/v2/animekai/player?url=<proxyM3u8-or-raw-cdn-url>&ref=<referer>

@@ -93,6 +93,39 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'hianime',
+      name: 'HiAnime',
+      accent: '#f472b6',
+      source: 'hianime.at scrape + MegaPlay',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/hianime', desc: 'Spotlight, trending, featured blocks, top-viewed charts & latest sections.' },
+            { label: 'Browse', path: '/api/v2/hianime/browse/az-list?page=1', desc: 'Curated / category listing pages (az-list, most-popular, tv, movie...).' },
+            { label: 'Anime details', path: '/api/v2/hianime/anime/one-piece-1', desc: 'Synopsis, score, genres, rating & metadata from the detail page.' },
+            { label: 'Episodes', path: '/api/v2/hianime/anime/one-piece-1/episodes', desc: 'Full episode list with episode ids and watch URLs.' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/hianime/search?q=naruto&page=1', desc: 'Keyword search.' },
+            { label: 'Genre', path: '/api/v2/hianime/genre/action?page=1', desc: 'Titles by genre.' },
+            { label: 'Suggestions', path: '/api/v2/hianime/search/suggestion?q=naruto', desc: 'Autocomplete suggestions.' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode servers', path: '/api/v2/hianime/episode/servers?animeEpisodeId=one-piece-1&ep=1', desc: 'Available sub/dub servers (HD-1, HD-2) for an episode.' },
+            { label: 'Episode sources', path: '/api/v2/hianime/episode/sources?animeEpisodeId=one-piece-1&ep=1&server=HD-1&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaPlay AES-CBC resolver.' },
+            { label: 'Stream proxy', path: '/api/v2/hianime/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true },
+          ],
+        },
+      ],
+    },
   ],
 };
 

@@ -105,6 +105,15 @@ npm run start
 | `GET` | `/api/v2/animekai/episode/sources?animeEpisodeId=&ep=&server=&category=` | Video sources (m3u8) |
 | `GET` | `/api/v2/animekai/proxy?url=&ref=` | HLS playlist proxy |
 
+### Scrapling (Python bridge)
+
+> Fetch and parse pages with [Scrapling](https://github.com/D4Vinci/Scrapling). The
+> request is executed by a Python worker in the project `.venv` via `child_process`
+> and `scripts/scrapling_worker.py`. Vanilla fetches need no browser; `js=1` uses
+> browser rendering (Playwright) and `stealth=1` uses Scrapling's anti-bot fetcher.
+
+| `GET` | `/api/v2/scrapling/fetch?url=&js=&proxy=&headers=&extract=&timeout=` | Fetch a page / extract selectors |
+
 ---
 
 ## 💡 Usage Examples
@@ -151,6 +160,23 @@ curl "http://localhost:3000/api/v2/animekai/episode/sources?animeEpisodeId=one-p
 
 ---
 
+### Scrapling Fetch (Python bridge)
+
+```bash
+# Vanilla fetch — returns page text + extracted selectors
+curl \
+  "http://localhost:3000/api/v2/scrapling/fetch?url=https%3A%2F%2Fexample.com&extract=%5B%7B%22name%22%3A%22title%22%2C%22kind%22%3A%22xpath%22%2C%22selector%22%3A%22%2F%2Ftitle%2Ftext()%22%7D%5D"
+
+# Browser-rendered fetch (requires Playwright in .venv)
+curl "http://localhost:3000/api/v2/scrapling/fetch?url=https%3A%2F%2Fexample.com&js=true"
+```
+
+> **Params** — `url` (required, http(s)) · `js` (boolean) · `stealth` (boolean) ·
+> `proxy` (string) · `headers` (URL-encoded JSON object) · `extract` (URL-encoded
+> JSON array `[{name,kind,selector,many}]` with `kind` ∈ `css`|`xpath`) · `timeout`.
+>
+> **Response** — `{ success, ok, status, url, text, extracts, error, extractionTimeSec }`;
+
 ## ⚙️ Configuration
 
 Create a `.env` file in the project root:
@@ -191,6 +217,10 @@ Shirayuki-Anime-API/
 │   │   ├── controllers/
 │   │   ├── router/
 │   │   └── scraper/
+│   ├── scrapling/               # Scrapling Python bridge
+│   │   ├── controllers/
+│   │   ├── router/
+│   │   └── index.js            # spawns .venv python worker
 │   ├── ui/
 │   │   └── landing.js          # HTML API explorer (served at /)
 │   ├── config/
@@ -201,6 +231,8 @@ Shirayuki-Anime-API/
 │       ├── constants.js       # Base URLs & user agent
 │       ├── scrapper-deps.js   # Scraping dependencies
 │       └── scrapper-helpers.js # Helper functions
+├── scripts/
+│   └── scrapling_worker.py    # Python Scrapling worker (run via .venv)
 ├── package.json
 ├── vercel.json                # Vercel deployment config
 └── README.md
