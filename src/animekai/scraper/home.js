@@ -76,6 +76,30 @@ const parseSpotlight = ($, origin) =>
     })
     .get();
 
+// The home page truncates spotlight descriptions to a short teaser. Fetch each
+// anime detail page and replace the truncated description with the full synopsis.
+const enrichSpotlightDescriptions = async (spotlight) => {
+  await Promise.all(
+    spotlight.map(async (item) => {
+      if (!item.url || !item.description) return;
+      try {
+        const slug = String(item.url).split('/').filter(Boolean).pop();
+        if (!slug) return;
+        const detailHtml = await pageGet(`${ANIMEKAI_BASE_URL}/anime/${slug}`);
+        const $ = load(detailHtml);
+        const full =
+          $('#w-info .desc .content').first().text().trim() ||
+          $('meta[name="description"]').first().attr('content') ||
+          null;
+        if (full && full !== item.description) item.description = full;
+      } catch {
+        /* keep the truncated teaser if the detail fetch fails */
+      }
+    }),
+  );
+  return spotlight;
+};
+
 // Generic widget fetch: ajax/home/widget/{slug}?page=N returns { status, result: html }.
 const fetchWidget = async (widget, page) => {
   const res = await pageGet(
@@ -92,7 +116,7 @@ export const getAnimeKaiHomePage = async () => {
   const homeHtml = await pageGet(`${ANIMEKAI_BASE_URL}/home`);
   const $ = load(homeHtml);
 
-  const spotlight = parseSpotlight($, ANIMEKAI_BASE_URL);
+  const spotlight = await enrichSpotlightDescriptions(parseSpotlight($, ANIMEKAI_BASE_URL));
 
   // Primary rows come from widgets; fall back to the on-page #recent-update grid.
   const [trending, topAiring, mostPopular, latestEpisode, completed] = await Promise.all([
