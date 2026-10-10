@@ -1,18 +1,36 @@
 import { axios } from '../../utils/scrapper-deps.js';
 import { MEGAPLAY_BASE_URL, DEFAULT_UA } from './_shared.js';
 
-// Hosts we're willing to proxy, to avoid being turned into an open relay.
+// Static allow-list covers the player and known master/key CDN hosts.
 const ALLOWED_HOST_SUFFIXES = [
   'megaplay.buzz',
   'nexabloom.top',
   'broforgotsave.online',
+  'eclipseharbor.space',
 ];
+
+// Besides throttling, we also learn and accept the CDN host of every child
+// (segment / AES key / variant) referenced by a playlist we successfully proxied.
+// This covers the ever-rotating masked base domains (ex. .space) per episode
+// without turning the proxy into an open relay for arbitrary hosts.
+const discoveredHosts = new Set();
+const noteHostsFrom = (body, playlistUrl) => {
+  for (const line of body.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    try {
+      discoveredHosts.add(new URL(trimmed, playlistUrl).hostname);
+    } catch {}
+  }
+};
 
 const isAllowedHost = (urlStr) => {
   try {
     const { hostname } = new URL(urlStr);
-    return ALLOWED_HOST_SUFFIXES.some(
-      (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
+    return (
+      ALLOWED_HOST_SUFFIXES.some(
+        (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
+      ) || discoveredHosts.has(hostname)
     );
   } catch {
     return false;
@@ -109,6 +127,9 @@ export const proxyStream = async ({ url, referer, basePath }) => {
 
   if (looksLikePlaylist(url, contentType, upstream.data)) {
     const text = Buffer.from(upstream.data).toString('utf-8');
+    // Learn child hosts (variants/segments/keys) now so later requests for
+    // those resources pass the allow-check even on rotating masked domains.
+    noteHostsFrom(text, url);
     const rewritten = rewritePlaylist(text, url, upstreamReferer, basePath);
     return {
       kind: 'playlist',

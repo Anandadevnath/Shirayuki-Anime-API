@@ -28,10 +28,7 @@ pre{white-space:pre-wrap;background:#0a0a0f;color:#7dff9b;padding:.7rem;font-siz
     <input id="ep" type="number" min="1" value="${ep}" style="width:70px" />
   </label>
   <label>server:
-    <select id="server">
-      <option value="ani-hd" ${server==='ani-hd'?'selected':''}>ani-hd</option>
-      <option value="megaplay" ${server==='megaplay'?'selected':''}>megaplay</option>
-    </select>
+    <input id="server" value="${server}" style="width:90px" placeholder="HD-1" />
   </label>
   <label>category:
     <select id="cat"><option value="sub" ${category==='sub'?'selected':''}>sub</option><option value="dub" ${category==='dub'?'selected':''}>dub</option></select>
@@ -63,8 +60,11 @@ async function play(){
     const j=await r.json();
     if(!j.success){throw new Error(j.error||'bad response');}
     const src=j.data.sources[0];
-    // proxyM3u8 is now the /play page URL; build the actual proxy stream from raw data.
-    const proxy=location.origin+'/api/v2/animekai/proxy?url='+encodeURIComponent(src.url)+'&ref='+encodeURIComponent(src.referer);
+    // Prefer a ready-made embeddedUrl (hianime) over building a local
+    // proxy from raw url + referer (animekai fallback).
+    const proxy=src.embeddedUrl
+      ? src.embeddedUrl
+      : location.origin+'/api/v2/animekai/proxy?url='+encodeURIComponent(src.url)+'&ref='+encodeURIComponent(src.referer||'');
     log('episode '+j.data.episode+'  server '+src.server+'/'+src.category+'  quality='+src.quality);
     log('proxy='+proxy);
     if(window.Hls && Hls.isSupported()){
