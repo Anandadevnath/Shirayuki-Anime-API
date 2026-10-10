@@ -22,7 +22,7 @@
 
 > **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
 
-*A RESTful API that unifies anime data across **Anixo** and **AnimeKai** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
+*A RESTful API that unifies anime data across **Anixo**, **AnimeKai**, and **HiAnime (hianime.at)** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
 
 </div>
 
@@ -39,7 +39,7 @@
 | 📺 **Anime Details** | Full metadata, episodes, schedules |
 | 🎬 **Streaming Sources** | Episode servers and video sources |
 | 🗓️ **Schedules** | Daily airing schedules by date |
-| 🌐 **Multi-Provider** | Anixo · AnimeKai |
+| 🌐 **Multi-Provider** | Anixo · AnimeKai · HiAnime (hianime.at) |
 | 🔁 **HLS Proxy** | Ready-to-play proxied `.m3u8` streams |
 
 </div>
@@ -105,6 +105,23 @@ npm run start
 | `GET` | `/api/v2/animekai/episode/sources?animeEpisodeId=&ep=&server=&category=` | Video sources (m3u8) |
 | `GET` | `/api/v2/animekai/proxy?url=&ref=` | HLS playlist proxy |
 
+### HiAnime
+
+> **`https://hianime.at` scrape** · Multi-source streaming — **MegaPlay** (`mega` / `megaplay`), **ZokoAnime** (`zokoanime`), **vidplay-family** (`vidplay`) — resolving to `.m3u8` HLS with subtitles, intro & outro tracks.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v2/hianime` | Home — daily releases, trending, seasonal, popular, top-airing, latest-episode |
+| `GET` | `/api/v2/hianime/search?q=&page=1` | Basic search |
+| `GET` | `/api/v2/hianime/search/advanced` | Advanced filters (genre, type, rating, status) |
+| `GET` | `/api/v2/hianime/search/suggestion?q=` | Autocomplete |
+| `GET` | `/api/v2/hianime/anime/:animeId` | Full anime details (synopsis, score, genres, episodes) |
+| `GET` | `/api/v2/hianime/anime/:animeId/episodes` | Episode list with watch URLs |
+| `GET` | `/api/v2/hianime/episode/servers?animeEpisodeId=&ep=` | Streaming servers (sub/dub) |
+| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=mega&category=sub` | Video sources (m3u8) |
+| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=vidplay&category=sub` | Video sources (vidplay-family m3u8) |
+| `GET` | `/api/v2/hianime/proxy?url=&ref=` | HLS playlist proxy |
+
 ### Scrapling (Python bridge)
 
 > Fetch and parse pages with [Scrapling](https://github.com/D4Vinci/Scrapling). The
@@ -156,6 +173,23 @@ curl "http://localhost:3000/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&
 ### Get Episode Sources (AnimeKai — MegaVid m3u8)
 ```bash
 curl "http://localhost:3000/api/v2/animekai/episode/sources?animeEpisodeId=one-piece-ewc5jc&ep=1&server=ani-hd&category=sub"
+```
+
+### Get Anime Details (HiAnime — hianime.at)
+```bash
+curl "http://localhost:3000/api/v2/hianime/anime/one-piece-1"
+```
+
+### Get Episode Sources (HiAnime — MegaPlay m3u8 via HLS proxy)
+```bash
+# 1) Get servers for episode
+curl "http://localhost:3000/api/v2/hianime/episode/servers?animeEpisodeId=one-piece-1&ep=1"
+
+# 2) Get sources (MegaPlay m3u8) — watch URL from the response
+curl "http://localhost:3000/api/v2/hianime/episode/sources?animeEpisodeId=one-piece-1&ep=1&server=mega&category=sub"
+
+# 3) Play the stream — the endpoint proxies/rewrites the playlist for the player
+curl "http://localhost:3000/api/v2/hianime/proxy?url=<ENCODED_M3U8_URL>&ref=https://hianime.at/"
 ```
 
 ---
