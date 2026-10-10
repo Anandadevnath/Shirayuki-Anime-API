@@ -64,7 +64,7 @@ export const API_CATALOG = {
         {
           title: 'Listings',
           items: [
-            { label: 'Home', path: '/api/v2/animekai', desc: 'Spotlight, trending, top-airing, popular, latest-episode & recently-updated rows.' },
+            { label: 'Home', path: '/api/v2/animekai', desc: 'Spotlight, trending, top-airing, popular, latest-episode, recently-updated, new-release, newly-added, just-completed, upcoming & top-trending (day/week/month).' },
             { label: 'A–Z list', path: '/api/v2/animekai/azlist/A?page=1', desc: 'Catalogue by letter (0-9, A-Z, other), paginated.' },
             { label: 'Anime details', path: '/api/v2/animekai/anime/one-piece-ewc5jc', desc: 'Synopsis, score, genres, studios, relations & full episode list.' },
             { label: 'Episodes', path: '/api/v2/animekai/anime/one-piece-ewc5jc/episodes', desc: 'Episode list with sub/dub availability and range chips.' },
