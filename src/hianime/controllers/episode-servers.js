@@ -37,9 +37,6 @@ export const hianimeEpisodeServersController = async (c) => {
     }
 
     const data = await getHianimeEpisodeServers({ episodeId, animeEpisodeId, ep });
-    // The scraper returns `servers` for internal use (sources resolution); strip
-    // it from the public response so this endpoint no longer exposes the server list.
-    if (data && data.servers) delete data.servers;
     setCached(cacheKey, data);
 
     const extractionTimeSec = Number(((Date.now() - startTime) / 1000).toFixed(3));

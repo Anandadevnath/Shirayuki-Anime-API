@@ -51,7 +51,6 @@ export const getHianimeEpisodeSources = async ({ episodeId, animeEpisodeId, ep, 
     tracks: [],
     intro: null,
     outro: null,
-    servers: serverData.servers,
   };
 
   if (!ordered.length) {
