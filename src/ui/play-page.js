@@ -60,11 +60,11 @@ async function play(){
     const j=await r.json();
     if(!j.success){throw new Error(j.error||'bad response');}
     const src=j.data.sources[0];
-    // Prefer a ready-made embeddedUrl (hianime) over building a local
-    // proxy from raw url + referer (animekai fallback).
-    const proxy=src.embeddedUrl
+    // Prefer a ready-made embeddedUrl; otherwise proxy the raw url ourselves.
+    const proxyBase = api.split('/episode/sources')[0] + '/proxy';
+    const proxy = src.embeddedUrl
       ? src.embeddedUrl
-      : location.origin+'/api/v2/animekai/proxy?url='+encodeURIComponent(src.url)+'&ref='+encodeURIComponent(src.referer||'');
+      : location.origin + proxyBase + '?url=' + encodeURIComponent(src.url) + '&ref=' + encodeURIComponent(src.referer || '');
     log('episode '+j.data.episode+'  server '+src.server+'/'+src.category+'  quality='+src.quality);
     log('proxy='+proxy);
     if(window.Hls && Hls.isSupported()){
@@ -94,9 +94,9 @@ export const createPlayPage = (apiPath) => {
   const router = new Hono();
   const full = apiPath.replace(/\/+$/, '');
   router.get('/', (c) => {
-    const animeEpisodeId = c.req.query('animeEpisodeId') || c.req.query('animeId') || 'one-piece-ewc5jc';
+    const animeEpisodeId = c.req.query('animeEpisodeId') || c.req.query('animeId') || 'naruto-eybxz';
     const ep = c.req.query('ep') || '1';
-    const server = c.req.query('server') || 'ani-hd';
+    const server = c.req.query('server') || 'hd-1';
     const category = c.req.query('category') || 'sub';
     c.header('Cache-Control', 'no-store');
     return c.html(PLAY_PAGE({ apiPath: full, animeEpisodeId, ep, server, category }));

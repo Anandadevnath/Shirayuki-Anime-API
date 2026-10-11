@@ -22,7 +22,7 @@
 
 > **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
 
-*A RESTful API that unifies anime data across **Anixo**, **AnimeKai**, and **HiAnime (hianime.at)** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
+*A RESTful API that unifies anime data across **Anikoto** and **HiAnime (hianime.at)** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
 
 </div>
 
@@ -39,7 +39,7 @@
 | 📺 **Anime Details** | Full metadata, episodes, schedules |
 | 🎬 **Streaming Sources** | Episode servers and video sources |
 | 🗓️ **Schedules** | Daily airing schedules by date |
-| 🌐 **Multi-Provider** | Anixo · AnimeKai · HiAnime (hianime.at) |
+| 🌐 **Multi-Provider** | Anikoto · HiAnime (hianime.at) |
 | 🔁 **HLS Proxy** | Ready-to-play proxied `.m3u8` streams |
 
 </div>
@@ -86,24 +86,6 @@ npm run start
 | `GET` | `/api/v2/anixo/episode/servers?animeEpisodeId=&ep=` | Streaming servers |
 | `GET` | `/api/v2/anixo/episode/sources?animeEpisodeId=&ep=&server=megaplay&category=sub` | Video sources (m3u8) |
 | `GET` | `/api/v2/anixo/proxy?url=&ref=` | HLS playlist proxy |
-
-### AnimeKai
-
-> animekai.ro scrape · MegaVid streaming (`ani-hd`, `hd`, `hd-1`)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/animekai` | Spotlight, trending, latest-episodes, new-releases, recently-added, most-popular, most-favorite, top-airing, latest-completed, upcoming, top-subbed, top-dubbed, popular-movies, recently-added-movies, most-viewed-today & recommended-for-you |
-| `GET` | `/api/v2/animekai/azlist/:letter?page=1` | Catalogue by letter (0-9, A-Z, other) |
-| `GET` | `/api/v2/animekai/anime/:animeId` | Full anime details |
-| `GET` | `/api/v2/animekai/anime/:animeId/episodes` | Episode list |
-| `GET` | `/api/v2/animekai/search?q=&page=1` | Basic search |
-| `GET` | `/api/v2/animekai/search/advanced` | Advanced filters |
-| `GET` | `/api/v2/animekai/search/suggestion?q=` | Autocomplete |
-| `GET` | `/api/v2/animekai/schedule?date=YYYY-MM-DD` | Daily schedule |
-| `GET` | `/api/v2/animekai/episode/servers?animeEpisodeId=&ep=` | Streaming servers (Ani-HD, HD, HD-1) |
-| `GET` | `/api/v2/animekai/episode/sources?animeEpisodeId=&ep=&server=&category=` | Video sources (m3u8) |
-| `GET` | `/api/v2/animekai/proxy?url=&ref=` | HLS playlist proxy |
 
 ### HiAnime
 
@@ -168,11 +150,6 @@ curl "http://localhost:3000/api/v2/anixo/schedule?date=2026-05-22&timezone=UTC"
 ### Get Episode Sources (Anixo — MegaPlay m3u8)
 ```bash
 curl "http://localhost:3000/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub"
-```
-
-### Get Episode Sources (AnimeKai — MegaVid m3u8)
-```bash
-curl "http://localhost:3000/api/v2/animekai/episode/sources?animeEpisodeId=one-piece-ewc5jc&ep=1&server=ani-hd&category=sub"
 ```
 
 ### Get Anime Details (HiAnime — hianime.at)
@@ -247,10 +224,6 @@ Shirayuki-Anime-API/
 │   │   ├── controllers/
 │   │   ├── router/
 │   │   └── scraper/
-│   ├── animekai/               # animekai.ro listings + MegaVid streaming
-│   │   ├── controllers/
-│   │   ├── router/
-│   │   └── scraper/
 │   ├── scrapling/               # Scrapling Python bridge
 │   │   ├── controllers/
 │   │   ├── router/
@@ -277,8 +250,6 @@ Shirayuki-Anime-API/
 ## 🔀 Server Alias Mapping
 
 > **Anixo** streams via MegaPlay: `megaplay` (AniList route) and `megaplay-mal` (MAL route).
-
-> **AnimeKai** streams via MegaVid: `ani-hd`, `hd`, `hd-1`.
 
 ---
 

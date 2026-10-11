@@ -56,44 +56,6 @@ export const API_CATALOG = {
   tagline: 'A unified anime API across multiple providers — listings, search, metadata & HLS streaming.',
   providers: [
     {
-      id: 'animekai',
-      name: 'AnimeKai',
-      accent: '#38bdf8',
-      source: 'animekai.ro scrape + MegaVid',
-      groups: [
-        {
-          title: 'Listings',
-          items: [
-            { label: 'Home', path: '/api/v2/animekai', desc: 'Spotlight, trending, latest-episodes, new-releases, recently-added, most-popular, most-favorite, top-airing, latest-completed, upcoming, top-subbed, top-dubbed, popular-movies, recently-added-movies, most-viewed-today & recommended-for-you.' },
-            { label: 'A–Z list', path: '/api/v2/animekai/azlist/A?page=1', desc: 'Catalogue by letter (0-9, A-Z, other), paginated.' },
-            { label: 'Anime details', path: '/api/v2/animekai/anime/one-piece-ewc5jc', desc: 'Synopsis, score, genres, studios, relations & full episode list.' },
-            { label: 'Episodes', path: '/api/v2/animekai/anime/one-piece-ewc5jc/episodes', desc: 'Episode list with sub/dub availability and range chips.' },
-          ],
-        },
-        {
-          title: 'Search',
-          items: [
-            { label: 'Search', path: '/api/v2/animekai/search?q=naruto&page=1', desc: 'Keyword search (AnimeKai /filter).' },
-            { label: 'Advanced search', path: '/api/v2/animekai/search/advanced?q=naruto&type=tv&sort=score&page=1', desc: 'Filter by type, genre, season, year, status, language & sort.' },
-            { label: 'Suggestions', path: '/api/v2/animekai/search/suggestion?q=naruto', desc: 'Autocomplete suggestions.' },
-          ],
-        },
-        {
-          title: 'Discover',
-          items: [
-            { label: 'Schedule', path: '/api/v2/animekai/schedule?date=2026-10-09', desc: 'Airing schedule for a date (defaults to today, UTC).' },
-          ],
-        },
-        {
-          title: 'Streaming',
-          items: [
-            { label: 'Episode servers', path: '/api/v2/animekai/episode/servers?animeEpisodeId=one-piece-ewc5jc&ep=1', desc: 'Available sub/dub servers (Ani-HD, HD, HD-1) for an episode.' },
-            { label: 'Episode sources', path: '/api/v2/animekai/episode/sources?animeEpisodeId=one-piece-ewc5jc&ep=1&server=ani-hd&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaVid player chain.' },
-          ],
-        },
-      ],
-    },
-    {
       id: 'hianime',
       name: 'HiAnime',
       accent: '#f472b6',

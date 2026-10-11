@@ -1,8 +1,5 @@
-import { Hono } from 'hono';
-import { getRequestOrigin } from '../utils/request-origin.js';
-
-// Generic "paste this URL into a browser and it plays" player.
-// /player?url=<proxyM3u8>&ref=<referer>  -> HTML page with hls.js auto-start.
+// HTML page served when a browser *tab* navigates straight to a proxied m3u8
+// URL (Accept: text/html); real HLS clients get the raw playlist/segments.
 export const PLAYER_PAGE_HTML = (proxyUrl) => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,17 +36,4 @@ if(window.Hls && Hls.isSupported()){
 </body>
 </html>`;
 
-export const createGenericPlayer = () => {
-  const router = new Hono();
-  router.get('/', (c) => {
-    const raw = c.req.query('url') || '';
-    // If the caller pasted the raw CDN url (no prefix), we proxy it too.
-    const isCustom = !raw.includes('/proxy?') && !raw.includes('/proxy/');
-    const target = isCustom
-      ? `${getRequestOrigin(c)}/api/v2/animekai/proxy?url=${encodeURIComponent(raw)}&ref=${encodeURIComponent(c.req.query('ref') || 'https://megavid.buzz/')}`
-      : raw;
-    c.header('Cache-Control', 'no-store');
-    return c.html(PLAYER_PAGE_HTML(target));
-  });
-  return router;
-};
+

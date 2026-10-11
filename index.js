@@ -3,10 +3,6 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import env from "./src/config/env.js";
-import animekaiListingsRouter from "./src/animekai/router/listings.js";
-import animekaiEpisodeServersRouter from "./src/animekai/router/episode-servers.js";
-import animekaiEpisodeSourcesRouter from "./src/animekai/router/streaming-server.js";
-import animekaiProxyRouter from "./src/animekai/router/proxy.js";
 import anikotoListingsRouter from "./src/anikoto/router/listings.js";
 import anikotoEpisodeServersRouter from "./src/anikoto/router/episode-servers.js";
 import anikotoEpisodeSourcesRouter from "./src/anikoto/router/streaming-server.js";
@@ -18,7 +14,6 @@ import hianimeProxyRouter from "./src/hianime/router/proxy.js";
 import scraplingRouter from "./src/scrapling/router/index.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
-import { createGenericPlayer } from "./src/ui/generic-player.js";
 
 const app = new Hono();
 
@@ -40,11 +35,6 @@ app.get("/endpoints.json", (c) => {
 });
 
 // API Routes
-app.route("/api/v2/animekai", animekaiListingsRouter);
-app.route("/api/v2/animekai/episode", animekaiEpisodeServersRouter);
-app.route("/api/v2/animekai/episode/sources", animekaiEpisodeSourcesRouter);
-app.route("/api/v2/animekai/proxy", animekaiProxyRouter);
-
 app.route("/api/v2/hianime", hianimeListingsRouter);
 app.route("/api/v2/hianime/episode", hianimeEpisodeServersRouter);
 app.route("/api/v2/hianime/episode/sources", hianimeEpisodeSourcesRouter);
@@ -58,15 +48,9 @@ app.route("/api/v2/anikoto/proxy", anikotoProxyRouter);
 app.route("/api/v2/scrapling", scraplingRouter);
 
 // Built-in HLS player preview page (plays proxyM3u8 through hls.js).
-app.route("/api/v2/animekai/play", createPlayPage("/api/v2/animekai/episode/sources"));
-
 app.route("/api/v2/hianime/play", createPlayPage("/api/v2/hianime/episode/sources"));
 
 app.route("/api/v2/anikoto/play", createPlayPage("/api/v2/anikoto/episode/sources"));
-
-// Generic "copy & paste this URL and it plays" HLS player.
-// /api/v2/animekai/player?url=<proxyM3u8-or-raw-cdn-url>&ref=<referer>
-app.route("/api/v2/animekai/player", createGenericPlayer());
 
 app.notFound((c) => {
   return c.json(

@@ -36,7 +36,7 @@ export const getHianimeSearch = async ({ q, page } = {}) => {
 };
 
 // Curated lists under a top-level path (/az-list, /tv, /movie, /most-popular,
-// /top-airing, /upcoming). Mirrors animekai's az-list surface.
+// /top-airing, /upcoming). Mirrors the az-list listing surface.
 export const getHianimeBrowse = async ({ category, page } = {}) => {
   const clean = String(category || '').trim().replace(/^\/+|\/+$/g, '');
   if (!clean) {
