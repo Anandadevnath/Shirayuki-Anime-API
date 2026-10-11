@@ -221,37 +221,49 @@ export const getAnimeKaiHomePage = async () => {
 
   const spotlight = await enrichSpotlightDescriptions(parseSpotlight($, ANIMEKAI_BASE_URL));
 
-  // Primary rows come from widgets; fall back to the on-page #recent-update grid.
-  const [trending, topAiring, mostPopular, latestEpisode, completed] = await Promise.all([
-    fetchWidget('trending', 1),
-    fetchWidget('top-airing', 1),
-    fetchWidget('most-popular', 1),
-    fetchWidget('latest-episode', 1),
-    fetchWidget('completed', 1),
-  ]);
-
-  let recentlyUpdated = $('#recent-update .aitem').map(parseCard($)).get();
-  if (!recentlyUpdated.length) {
-    recentlyUpdated = await fetchWidget('recently-updated', 1);
-  }
+  // Primary rows come from widgets; each maps to one of the requested home sections.
+  const [trending, topAiring, mostPopular, latestEpisode, topSubbed, topDubbed, recommendedForYou] =
+    await Promise.all([
+      fetchWidget('trending', 1),
+      fetchWidget('top-airing', 1),
+      fetchWidget('most-popular', 1),
+      fetchWidget('latest-episode', 1),
+      fetchWidget('updated-sub', 1),
+      fetchWidget('updated-dub', 1),
+      fetchWidget('random', 1),
+    ]);
 
   const topTrending = parseTopTrending($);
   const { newRelease, newlyAdded, justCompleted, upcoming } = parseMiniPanels($);
+
+  // AnimeKai home has no movie-only section, so derive the movie lists from the
+  // upcoming / newly-added mini panels (type === 'MOVIE'); fall back to the full
+  // panel when no movies are present so the section never renders empty.
+  const onlyMovies = (list) => {
+    const movies = (list || []).filter((it) => /movie/i.test(it.type || ''));
+    return movies.length ? movies : list;
+  };
 
   return {
     source: `${ANIMEKAI_BASE_URL}/home`,
     spotlight,
     trending,
-    topAiring,
-    mostPopular,
     latestEpisode,
-    completed,
-    recentlyUpdated,
     newRelease,
-    newlyAdded,
-    justCompleted,
+    recentlyAdded: newlyAdded,
+    mostPopular,
+    // AnimeKai has no "favorites" data; the month chart is the closest ranking.
+    mostFavorite: topTrending.month,
+    topAiring,
+    latestCompleted: justCompleted,
     upcoming,
-    topTrending,
+    topSubbed,
+    topDubbed,
+    popularMovies: onlyMovies(upcoming),
+    recentlyAddedMovies: onlyMovies(newlyAdded),
+    // AnimeKai day chart = today's trending/most-viewed titles.
+    mostViewedToday: topTrending.day,
+    recommendedForYou,
   };
 };
 

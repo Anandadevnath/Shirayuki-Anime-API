@@ -94,7 +94,7 @@ export const createPlayPage = (apiPath) => {
   const router = new Hono();
   const full = apiPath.replace(/\/+$/, '');
   router.get('/', (c) => {
-    const animeEpisodeId = c.req.query('animeEpisodeId') || 'one-piece-ewc5jc';
+    const animeEpisodeId = c.req.query('animeEpisodeId') || c.req.query('animeId') || 'one-piece-ewc5jc';
     const ep = c.req.query('ep') || '1';
     const server = c.req.query('server') || 'ani-hd';
     const category = c.req.query('category') || 'sub';
