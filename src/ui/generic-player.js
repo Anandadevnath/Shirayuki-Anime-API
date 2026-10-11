@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getRequestOrigin } from '../utils/request-origin.js';
 
 // Generic "paste this URL into a browser and it plays" player.
 // /player?url=<proxyM3u8>&ref=<referer>  -> HTML page with hls.js auto-start.
@@ -45,7 +46,7 @@ export const createGenericPlayer = () => {
     // If the caller pasted the raw CDN url (no prefix), we proxy it too.
     const isCustom = !raw.includes('/proxy?') && !raw.includes('/proxy/');
     const target = isCustom
-      ? `${new URL(c.req.url).protocol}//${c.req.url ? new URL(c.req.url).host : 'localhost:3000'}/api/v2/animekai/proxy?url=${encodeURIComponent(raw)}&ref=${encodeURIComponent(c.req.query('ref') || 'https://megavid.buzz/')}`
+      ? `${getRequestOrigin(c)}/api/v2/animekai/proxy?url=${encodeURIComponent(raw)}&ref=${encodeURIComponent(c.req.query('ref') || 'https://megavid.buzz/')}`
       : raw;
     c.header('Cache-Control', 'no-store');
     return c.html(PLAYER_PAGE_HTML(target));

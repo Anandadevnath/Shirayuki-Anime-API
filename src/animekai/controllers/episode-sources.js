@@ -1,4 +1,5 @@
 import { getAnimeKaiEpisodeSources } from '../scraper/episode-sources.js';
+import { getRequestOrigin } from '../../utils/request-origin.js';
 
 // link-ids + m3u8 tokens expire, so only cache for a very short window.
 const sourcesCache = new Map();
@@ -25,14 +26,13 @@ const setCachedSources = (key, value) => {
 
 // Build a dynamic source URL to the built-in player page (/play) for this episode.
 const buildPlayUrl = (c, animeEpisodeId, ep, server, category) => {
-  const req = new URL(c.req.url);
-  const origin = `${req.protocol}//${req.host}`;
+  const origin = getRequestOrigin(c);
   const params = `animeEpisodeId=${encodeURIComponent(animeEpisodeId || '')}&ep=${encodeURIComponent(ep || '')}&server=${encodeURIComponent(server || '')}&category=${encodeURIComponent(category || '')}`;
   return `${origin}/api/v2/animekai/play?${params}`;
 };
 
 const withProxiedSources = (c, data, { animeEpisodeId, ep, server, category } = {}) => {
-  const origin = `${new URL(c.req.url).protocol}//${new URL(c.req.url).host}`;
+  const origin = getRequestOrigin(c);
   const sources = (data.sources || []).map((source) => ({
     ...source,
     proxyM3u8: buildPlayUrl(c, animeEpisodeId, ep, server, category),

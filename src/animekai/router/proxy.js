@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { animekaiProxyController } from '../controllers/proxy.js';
 import { PLAYER_PAGE_HTML } from '../../ui/generic-player.js';
+import { getPublicUrl } from '../../utils/request-origin.js';
 
 const animekaiProxyRouter = new Hono();
 
@@ -11,8 +12,8 @@ const animekaiProxyRouter = new Hono();
 animekaiProxyRouter.get('/', (c) => {
   const accept = c.req.header('accept') || '';
   if (accept.includes('text/html')) {
-    // c.req.url is the full absolute request URL (including query) in Hono.
-    const abs = c.req.url;
+    // getPublicUrl re-bases onto the forwarded scheme/host (Vercel sends https).
+    const abs = getPublicUrl(c);
     c.header('Cache-Control', 'no-store');
     return c.html(PLAYER_PAGE_HTML(abs));
   }

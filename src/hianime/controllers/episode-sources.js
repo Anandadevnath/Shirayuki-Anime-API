@@ -1,4 +1,5 @@
 import { getHianimeEpisodeSources } from '../scraper/episode-sources.js';
+import { getRequestOrigin } from '../../utils/request-origin.js';
 
 // megaplay tokens expire — short cache only.
 const sourcesCache = new Map();
@@ -18,17 +19,15 @@ const setCached = (key, value) =>
 
 // Build a dynamic source URL to the built-in player page (/play) for this episode.
 const buildPlayUrl = (c, params) => {
-  const req = new URL(c.req.url);
-  const origin = `${req.protocol}//${req.host}`;
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
     if (v) q.set(k, v);
   });
-  return `${origin}/api/v2/hianime/play?${q.toString()}`;
+  return `${getRequestOrigin(c)}/api/v2/hianime/play?${q.toString()}`;
 };
 
 const withProxiedSources = (c, data, params) => {
-  const origin = `${new URL(c.req.url).protocol}//${new URL(c.req.url).host}`;
+  const origin = getRequestOrigin(c);
   const sources = (data.link
     ? [
         {

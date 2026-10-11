@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { hianimeProxyController } from '../controllers/proxy.js';
 import { PLAYER_PAGE_HTML } from '../../ui/generic-player.js';
+import { getPublicUrl } from '../../utils/request-origin.js';
 
 const hianimeProxyRouter = new Hono();
 
@@ -10,7 +11,7 @@ const hianimeProxyRouter = new Hono();
 hianimeProxyRouter.get('/', (c) => {
   const accept = c.req.header('accept') || '';
   if (accept.includes('text/html')) {
-    const abs = c.req.url;
+    const abs = getPublicUrl(c);
     c.header('Cache-Control', 'no-store');
     return c.html(PLAYER_PAGE_HTML(abs));
   }
