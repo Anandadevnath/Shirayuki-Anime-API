@@ -126,6 +126,37 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'anikoto',
+      name: 'Anikoto',
+      accent: '#34d399',
+      source: 'anikototv.to scrape + MegaPlay',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/anikoto', desc: 'Spotlight, latest-episodes, upcoming, new-release, recently-added, latest-completed & top Day/Week/Month rankings.' },
+            { label: 'Anime details', path: '/api/v2/anikoto/anime/naruto-eybxz', desc: 'Synopsis, genres, studios, producers, premiere, score & full episode list.' },
+            { label: 'Episodes', path: '/api/v2/anikoto/anime/naruto-eybxz/episodes', desc: 'Episode list with sub/dub availability and range chips.' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/anikoto/search?q=naruto&page=1', desc: 'Keyword search (Anikoto /filter).' },
+            { label: 'Suggestions', path: '/api/v2/anikoto/search/suggestion?q=naruto', desc: 'Search-style suggestions (filter page top results).' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode servers', path: '/api/v2/anikoto/episode/servers?animeId=naruto-eybxz&ep=1', desc: 'Available sub/dub servers (HD-1, Vidstream-1, Vidstream-2) for an episode.' },
+            { label: 'Episode sources', path: '/api/v2/anikoto/episode/sources?animeId=naruto-eybxz&ep=1&server=Vidstream-2&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaPlay AES-CBC resolver.' },
+            { label: 'Stream proxy', path: '/api/v2/anikoto/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true },
+          ],
+        },
+      ],
+    },
   ],
 };
 
