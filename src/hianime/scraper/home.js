@@ -101,6 +101,13 @@ const parseTopViewedCharts = ($) => {
           title: nameEl.text().trim() || img.attr('alt') || null,
           jname: nameEl.attr('data-jname') || nameEl.attr('data-en') || null,
           poster: toAbsoluteUrl(img.attr('data-src') || img.attr('src')),
+          // The chart's `.fd-infor` tick row carries real sub/dub episode counts
+          // (some entries only have sub). Missing ticks stay null.
+          episodes: {
+            total: parseNumber(li.find('.tick-eps').first().text()),
+            sub: parseNumber(li.find('.tick-sub').first().text()),
+            dub: parseNumber(li.find('.tick-dub').first().text()),
+          },
           url: href ? toAbsoluteUrl(href) : null,
         };
       })
