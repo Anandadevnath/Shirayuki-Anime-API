@@ -88,23 +88,25 @@ const parseTopViewedCharts = ($) => {
       .find('li')
       .map((__, liNode) => {
         const li = $(liNode);
-        const a = li.find('a').first();
-        const href = a.attr('href') || null;
+        const a = li
+          .find('a.film-poster, a.dynamic-name, a.film-name, a[href]')
+          .first();
+        const href = a.attr('href') || li.find('.film-name a').attr('href') || null;
         const parsed = parseAnimeSlug(href);
-        const titleEl = a.find('.dynamic-name, .film-name').first();
-        const img = a.find('.film-poster-img').first();
+        const nameEl = li.find('.dynamic-name, .film-name').first();
+        const img = li.find('.film-poster-img').first();
         return {
           rank: parseNumber(li.find('.film-number, .film-number-wrap').first().text()),
-          id: parsed?.id || null,
-          title: titleEl.text().trim() || img.attr('alt') || null,
-          jname: titleEl.attr('data-jname') || titleEl.attr('data-en') || null,
+          id: parsed?.id || li.find('.film-poster').attr('data-id') || null,
+          title: nameEl.text().trim() || img.attr('alt') || null,
+          jname: nameEl.attr('data-jname') || nameEl.attr('data-en') || null,
           poster: toAbsoluteUrl(img.attr('data-src') || img.attr('src')),
           url: href ? toAbsoluteUrl(href) : null,
         };
       })
       .get()
-      .filter((r) => r.id || r.title);
-    if (label && items.length) charts[label] = items;
+      .filter((r) => r.id || r.title || r.poster);
+    if (label) charts[label] = items;
   });
   return charts;
 };
