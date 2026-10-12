@@ -210,7 +210,6 @@ NODE_ENV=development         # Environment: development/production/test
 | <img src="https://img.shields.io/badge/node--server-135F8D?style=flat-square&logo=node.js" height="20"> | Node adapter (serve the Hono app) |
 | <img src="https://img.shields.io/badge/Cheerio-259BFF?style=flat-square" height="20"> | HTML parsing |
 | <img src="https://img.shields.io/badge/Axios-5A29E4?style=flat-square" height="20"> | HTTP client |
-| <img src="https://img.shields.io/badge/Node%20Cache-90E59A?style=flat-square" height="20"> | In-memory response caching |
 
 </div>
 
@@ -243,14 +242,10 @@ Shirayuki-Anime-API/
 │   │   ├── play-page.js       # generic HLS player preview page
 │   │   └── generic-player.js  # shared player HTML used by proxy routers
 │   ├── config/
-│   │   ├── env.js             # Environment validation (envalid)
-│   │   └── errorHandler.js    # Error handling
+│   │   └── env.js             # Environment validation (envalid)
 │   └── utils/
-│       ├── cache.js           # In-memory caching (Node-Cache)
-│       ├── constants.js       # Base URLs & user agent
 │       ├── request-origin.js  # Resolves public scheme/host behind proxies
-│       ├── scrapper-deps.js   # Scraping dependencies
-│       └── scrapper-helpers.js # Helper functions
+│       └── scrapper-deps.js   # Scraping dependencies
 ├── scripts/
 │   └── scrapling_worker.py    # Python Scrapling worker (run via .venv)
 ├── package.json
