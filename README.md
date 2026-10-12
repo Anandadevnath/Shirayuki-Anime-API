@@ -22,7 +22,7 @@
 
 > **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
 
-*A RESTful API that unifies anime data across **Anikoto** and **HiAnime (hianime.at)** — listings, search, metadata, schedules, and HLS streaming sources, all wrapped in a clean Hono interface.*
+*A RESTful API that unifies anime data across **Anikoto** and **HiAnime (hianime.at)** — listings, search, metadata, and HLS streaming sources, all wrapped in a clean Hono interface.*
 
 </div>
 
@@ -35,10 +35,10 @@
 | Feature | Description |
 |---------|-------------|
 | 🏠 **Home & Trending** | Spotlight, trending anime, top charts |
-| 🔍 **Smart Search** | Basic, advanced filters, autocomplete |
-| 📺 **Anime Details** | Full metadata, episodes, schedules |
-| 🎬 **Streaming Sources** | Episode servers and video sources |
-| 🗓️ **Schedules** | Daily airing schedules by date |
+| 🔍 **Smart Search** | Keyword search + autocomplete suggestions |
+| 📺 **Anime Details** | Full metadata & episode lists |
+| 🎬 **Streaming Sources** | Episode servers and video sources (m3u8) |
+| 🔌 **Scrapling Bridge** | Fetch / parse any page via the Python worker |
 | 🌐 **Multi-Provider** | Anikoto · HiAnime (hianime.at) |
 | 🔁 **HLS Proxy** | Ready-to-play proxied `.m3u8` streams |
 
@@ -66,43 +66,39 @@ npm run start
 
 ## 📡 API Endpoints
 
-### Anixo
+### Anikoto
 
-> AniList-backed listings · MegaPlay streaming (`megaplay`, `megaplay-mal`)
+> `https://anikototv.to` scrape · MegaPlay streaming (`getSources`). Home is an aggregate of hotspot slides, latest-episodes, upcoming, and Day/Week/Month top rankings.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v2/anixo/home` | Spotlight, trending, popular, seasonal |
-| `GET` | `/api/v2/anixo/azlist/:letter?page=1` | Full catalogue grid |
-| `GET` | `/api/v2/anixo/anime/:animeId` | Full anime details |
-| `GET` | `/api/v2/anixo/anime/:animeId/episodes` | Episode list |
-| `GET` | `/api/v2/anixo/search?q=&page=1` | Basic search |
-| `GET` | `/api/v2/anixo/search/advanced` | Advanced filters |
-| `GET` | `/api/v2/anixo/search/suggestion?q=` | Autocomplete |
-| `GET` | `/api/v2/anixo/producer/:producer?page=1` | Filter by studio |
-| `GET` | `/api/v2/anixo/genre/:genre?page=1` | Filter by genre |
-| `GET` | `/api/v2/anixo/category/:category?page=1` | Curated lists |
-| `GET` | `/api/v2/anixo/schedule?date=YYYY-MM-DD&timezone=UTC` | Daily schedule |
-| `GET` | `/api/v2/anixo/episode/servers?animeEpisodeId=&ep=` | Streaming servers |
-| `GET` | `/api/v2/anixo/episode/sources?animeEpisodeId=&ep=&server=megaplay&category=sub` | Video sources (m3u8) |
-| `GET` | `/api/v2/anixo/proxy?url=&ref=` | HLS playlist proxy |
+| `GET` | `/api/v2/anikoto` | Home — spotlight, latest episodes, upcoming, top charts |
+| `GET` | `/api/v2/anikoto/search?q=&page=1` | Keyword search |
+| `GET` | `/api/v2/anikoto/search/suggestion?q=` | Search-style suggestions |
+| `GET` | `/api/v2/anikoto/anime/:animeId` | Full anime details (synopsis, genres, studios, score) |
+| `GET` | `/api/v2/anikoto/anime/:animeId/episodes` | Episode list with sub/dub ranges |
+| `GET` | `/api/v2/anikoto/episode/servers?animeId=&ep=1` | Streaming servers (sub/dub) |
+| `GET` | `/api/v2/anikoto/episode/sources?animeId=&ep=&server=&category=sub` | Video sources (m3u8) |
+| `GET` | `/api/v2/anikoto/proxy?url=&ref=` | HLS playlist proxy |
+| `GET` | `/api/v2/anikoto/play?animeId=&ep=&server=&category=` | Built-in browser player page |
 
 ### HiAnime
 
-> **`https://hianime.at` scrape** · Multi-source streaming — **MegaPlay** (`mega` / `megaplay`), **ZokoAnime** (`zokoanime`), **vidplay-family** (`vidplay`) — resolving to `.m3u8` HLS with subtitles, intro & outro tracks.
+> **`https://hianime.at` scrape** · Multi-source streaming — **MegaPlay** family (`bibiemb`, `megaplay`, `megacloud`, `vidcloud`, ...) and the **vidplay** family (`otakuhg`, `otakuvid`, `playmogo`, ...), both resolving to `.m3u8` HLS with subtitles, intro & outro tracks.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v2/hianime` | Home — daily releases, trending, seasonal, popular, top-airing, latest-episode |
-| `GET` | `/api/v2/hianime/search?q=&page=1` | Basic search |
-| `GET` | `/api/v2/hianime/search/advanced` | Advanced filters (genre, type, rating, status) |
+| `GET` | `/api/v2/hianime` | Home — trending, top-airing, seasonal, latest episodes |
+| `GET` | `/api/v2/hianime/browse/:category?page=1` | Curated listing pages (az-list, most-popular, tv, movie...) |
+| `GET` | `/api/v2/hianime/genre/:genre?page=1` | Titles by genre |
+| `GET` | `/api/v2/hianime/search?q=&page=1` | Keyword search |
 | `GET` | `/api/v2/hianime/search/suggestion?q=` | Autocomplete |
-| `GET` | `/api/v2/hianime/anime/:animeId` | Full anime details (synopsis, score, genres, episodes) |
+| `GET` | `/api/v2/hianime/anime/:animeId` | Full anime details (synopsis, score, genres) |
 | `GET` | `/api/v2/hianime/anime/:animeId/episodes` | Episode list with watch URLs |
-| `GET` | `/api/v2/hianime/episode/servers?animeEpisodeId=&ep=` | Streaming servers (sub/dub) |
-| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=mega&category=sub` | Video sources (m3u8) |
-| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=vidplay&category=sub` | Video sources (vidplay-family m3u8) |
+| `GET` | `/api/v2/hianime/episode/servers?animeEpisodeId=&ep=1` | Streaming servers (sub/dub) |
+| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=&category=sub` | Video sources (m3u8) |
 | `GET` | `/api/v2/hianime/proxy?url=&ref=` | HLS playlist proxy |
+| `GET` | `/api/v2/hianime/play?animeEpisodeId=&ep=&server=&category=` | Built-in browser player page |
 
 ### Scrapling (Python bridge)
 
@@ -117,56 +113,61 @@ npm run start
 
 ## 💡 Usage Examples
 
-### Get Trending Anime
+### Get Home
 ```bash
-curl "http://localhost:3000/api/v2/anixo/home"
+# Anikoto home
+curl "http://localhost:3000/api/v2/anikoto"
+
+# HiAnime home
+curl "http://localhost:3000/api/v2/hianime"
 ```
 
 ### Search for Anime
 ```bash
-curl "http://localhost:3000/api/v2/anixo/search?q=attack%20on%20titan&page=1"
+# Anikoto
+curl "http://localhost:3000/api/v2/anikoto/search?q=attack%20on%20titan&page=1"
+
+# HiAnime
+curl "http://localhost:3000/api/v2/hianime/search?q=attack%20on%20titan&page=1"
 ```
 
 ### Get Anime Details
 ```bash
-curl "http://localhost:3000/api/v2/anixo/anime/21"
+# Anikoto
+curl "http://localhost:3000/api/v2/anikoto/anime/naruto-eybxz"
+
+# HiAnime
+curl "http://localhost:3000/api/v2/hianime/anime/one-piece-1"
 ```
 
 ### Get Episode Servers
 ```bash
-curl "http://localhost:3000/api/v2/anixo/episode/servers?animeEpisodeId=21&ep=1"
-```
+# Anikoto
+curl "http://localhost:3000/api/v2/anikoto/episode/servers?animeId=naruto-eybxz&ep=1"
 
-### Advanced Search
-```bash
-curl "http://localhost:3000/api/v2/anixo/search/advanced?q=titan&genres=action&type=movie&sort=score&page=1"
-```
-
-### Get Schedule
-```bash
-curl "http://localhost:3000/api/v2/anixo/schedule?date=2026-05-22&timezone=UTC"
-```
-
-### Get Episode Sources (Anixo — MegaPlay m3u8)
-```bash
-curl "http://localhost:3000/api/v2/anixo/episode/sources?animeEpisodeId=21&ep=1&server=megaplay&category=sub"
-```
-
-### Get Anime Details (HiAnime — hianime.at)
-```bash
-curl "http://localhost:3000/api/v2/hianime/anime/one-piece-1"
-```
-
-### Get Episode Sources (HiAnime — MegaPlay m3u8 via HLS proxy)
-```bash
-# 1) Get servers for episode
+# HiAnime
 curl "http://localhost:3000/api/v2/hianime/episode/servers?animeEpisodeId=one-piece-1&ep=1"
+```
 
-# 2) Get sources (MegaPlay m3u8) — watch URL from the response
-curl "http://localhost:3000/api/v2/hianime/episode/sources?animeEpisodeId=one-piece-1&ep=1&server=mega&category=sub"
+### Get Episode Sources
+```bash
+# Anikoto — video sources (m3u8) for episode 1
+curl "http://localhost:3000/api/v2/anikoto/episode/sources?animeId=naruto-eybxz&ep=1&server=Vidstream-1&category=sub"
 
-# 3) Play the stream — the endpoint proxies/rewrites the playlist for the player
-curl "http://localhost:3000/api/v2/hianime/proxy?url=<ENCODED_M3U8_URL>&ref=https://hianime.at/"
+# HiAnime — video sources (m3u8) for episode 1
+curl "http://localhost:3000/api/v2/hianime/episode/sources?animeEpisodeId=one-piece-1&ep=1&server=HD-1&category=sub"
+```
+
+### Play the stream in a browser
+```bash
+# Anikoto player page (auto-plays via hls.js)
+open "http://localhost:3000/api/v2/anikoto/play?animeId=naruto-eybxz&ep=1&server=Vidstream-1&category=sub"
+
+# HiAnime player page
+open "http://localhost:3000/api/v2/hianime/play?animeEpisodeId=one-piece-1&ep=1&server=HD-1&category=sub"
+
+# Or proxy a raw m3u8 URL yourself
+curl "http://localhost:3000/api/v2/anikoto/proxy?url=<ENCODED_M3U8_URL>&ref=https%3A%2F%2Fmegaplay.buzz%2F"
 ```
 
 ---
@@ -206,11 +207,14 @@ NODE_ENV=development         # Environment: development/production/test
 | Technology | Purpose |
 |------------|---------|
 | <img src="https://img.shields.io/badge/Hono-ee6c00?style=flat-square&logo=fire" height="20"> | Web framework |
+| <img src="https://img.shields.io/badge/node--server-135F8D?style=flat-square&logo=node.js" height="20"> | Node adapter (serve the Hono app) |
 | <img src="https://img.shields.io/badge/Cheerio-259BFF?style=flat-square" height="20"> | HTML parsing |
 | <img src="https://img.shields.io/badge/Axios-5A29E4?style=flat-square" height="20"> | HTTP client |
-| <img src="https://img.shields.io/badge/Pino-FFD43B?style=flat-square" height="20"> | Fast logging |
+| <img src="https://img.shields.io/badge/Node%20Cache-90E59A?style=flat-square" height="20"> | In-memory response caching |
 
 </div>
+
+> Scraping stack: Axios + Cheerio per provider, with a small shared scraper utils layer.
 
 ---
 
@@ -218,24 +222,33 @@ NODE_ENV=development         # Environment: development/production/test
 
 ```
 Shirayuki-Anime-API/
-├── index.js                    # Entry point
+├── index.js                    # Entry point — mounts all /api/v2 routers
 ├── src/
-│   ├── anixo/                  # AniList listings + MegaPlay streaming
+│   ├── anikoto/               # anikototv.to listings + MegaPlay streaming
+│   │   ├── controllers/       # cached controllers
+│   │   ├── router/            # Hono routers (listings, streaming, proxy)
+│   │   ├── scraper/           # scrapers (home, anime, search, servers, sources, megaplay, proxy)
+│   │   └── _shared.js        # base URL, headers, normalizers
+│   ├── hianime/              # hianime.at listings + MegaPlay/vidplay streaming
 │   │   ├── controllers/
 │   │   ├── router/
-│   │   └── scraper/
-│   ├── scrapling/               # Scrapling Python bridge
+│   │   ├── scraper/           # home, anime, search, sources, servers, vidplay, megaplay, proxy
+│   │   └── _shared.js
+│   ├── scrapling/             # Scrapling Python bridge
 │   │   ├── controllers/
 │   │   ├── router/
-│   │   └── index.js            # spawns .venv python worker
+│   │   └── index.js           # spawns .venv python worker
 │   ├── ui/
-│   │   └── landing.js          # HTML API explorer (served at /)
+│   │   ├── landing.js         # HTML API explorer (served at /)
+│   │   ├── play-page.js       # generic HLS player preview page
+│   │   └── generic-player.js  # shared player HTML used by proxy routers
 │   ├── config/
-│   │   ├── env.js             # Environment validation
+│   │   ├── env.js             # Environment validation (envalid)
 │   │   └── errorHandler.js    # Error handling
 │   └── utils/
-│       ├── cache.js           # In-memory caching
+│       ├── cache.js           # In-memory caching (Node-Cache)
 │       ├── constants.js       # Base URLs & user agent
+│       ├── request-origin.js  # Resolves public scheme/host behind proxies
 │       ├── scrapper-deps.js   # Scraping dependencies
 │       └── scrapper-helpers.js # Helper functions
 ├── scripts/
@@ -247,9 +260,11 @@ Shirayuki-Anime-API/
 
 ---
 
-## 🔀 Server Alias Mapping
+## 🔀 Streaming Notes
 
-> **Anixo** streams via MegaPlay: `megaplay` (AniList route) and `megaplay-mal` (MAL route).
+- **Anikoto** servers resolve through MegaPlay's `/getSources` — supply the server name from `/episode/servers` (e.g. `Vidstream-1`).
+- **HiAnime** servers resolve through either the MegaPlay or vidplay flow automatically, so you can omit `server` and it will iterate: first match wins.
+- Both proxies rewrite `master.m3u8` → `proxy/stream.m3u8`, keep the key URI, and proxy the TS segments.
 
 ---
 
