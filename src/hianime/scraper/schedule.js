@@ -2,6 +2,7 @@ import { load } from '../../utils/scrapper-deps.js';
 import {
   HIANIME_BASE_URL,
   pageGet,
+  themeGet,
   toAbsoluteUrl,
 } from './_shared.js';
 import { parseFlwItem } from './cards.js';
@@ -9,18 +10,17 @@ import { parseFlwItem } from './cards.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Release schedule.
 //
-// hianime.at ships NO /schedule page (every classic route 404s) and its detail
-// pages no longer expose a `Broadcast` row on this theme, so a weekday/time
-// TV-calendar cannot be scraped without fabricating data. What IS real:
+// hianime.at ships NO /schedule page (every classic route 404s) — BUT its home
+// page renders a real "Estimated Schedule" widget, fed by the theme API:
 //
-//   • /top-airing  → the currently-airing pool
-//   • /home "Top Upcoming" → the announced-not-yet-aired pool
-//   • each title's detail page → `Aired` (premiere window) + `Status`
+//   GET /api/theme/schedule/widget           → the next weeks of day-item dates
+//   GET /api/theme/schedule/day?date=YYY-MM  → one day's episode list (the next
+//     7 days are fully populated; farther dates return a single stub slot)
 //
-// A not-yet-aired title's premiere date unambiguously determines its airing
-// weekday, so that's the factual backbone of the calendar here. Airing titles
-// (whose Aired window already started) are listed separately — they simply have
-// no upstream broadcast slot to hang a weekday on.
+// That /schedule/day payload IS the weekday calendar the home page shows, so we
+// use it as the factual backbone of `week` and enrich rows with poster/type
+// from the card pool (the day endpoint only returns title + air time + episode
+// number — no poster/type). The old premiere-derived week stays as fallback.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DAY_NAMES = [
@@ -56,6 +56,102 @@ export const toWeekday = (date) => {
 };
 
 export const isoDate = (d) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : null);
+
+// UTC-safe weekday name for a bare "YYYY-MM-DD" (avoids server-local timezone
+// drift flipping a day). Returns a DAY_NAMES value or null.
+export const weekdayFromIso = (iso) => {
+  const [y, m, d] = String(iso || '').split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return DAY_NAMES[(new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7];
+};
+
+// Parse a `schedule/day` response (`<ul class="tsl-schedule"> <li>` grid) into
+// slot objects: id (slug-id from the watch link) + title + jname + air time +
+// episode label. The theme endpoint returns these but no poster/type.
+const parseScheduleSlots = ($) =>
+  $('ul.tsl-schedule > li')
+    .map((_, el) => {
+      const $li = $(el);
+      const $a = $li.find('a.tsl-link').first();
+      const $name = $li.find('h3.film-name').first();
+      return {
+        id: slugIdFromUrl($a.attr('href')) || null,
+        title: $name.text().trim() || null,
+        jname: $name.attr('data-jname') || null,
+        airTime: $li.find('.time').first().text().trim() || null,
+        episodeNumber: $li.find('.fd-play .btn-play').first().text().trim() || null,
+      };
+    })
+    .get()
+    .filter((r) => r.title || r.id);
+
+// The widget's day-item list marks every date the schedule is published for;
+// only the NEXT 7 from today are fully populated upstream (farther dates return
+// a single stub slot), so pick exactly those to build a complete week.
+const pickScheduleDates = (widgetHtml) => {
+  const $w = load(widgetHtml || '');
+  const today = new Date().toISOString().slice(0, 10);
+  const dates = $w('.day-item')
+    .map((_, el) => $w(el).attr('data-date'))
+    .get()
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+    .filter((d) => d >= today)
+    .slice(0, 7);
+  if (dates.length === 7) return dates;
+  // Fallback: next 7 calendar days.
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(Date.now() + i * 86_400_000);
+    return d.toISOString().slice(0, 10);
+  });
+};
+
+// Build the real weekday calendar from the theme schedule endpoint, enriching
+// each slot with poster/type from the card pool (matched by id).
+export const buildRealWeek = async ({ targets, metaById, upcomingIds }) => {
+  const dayResults = await Promise.all(
+    targets.map(async (date) => {
+      const res = await themeGet(`/schedule/day?tzOffset=0&date=${date}`, `${HIANIME_BASE_URL}/home`);
+      const $ = load(res?.html || '');
+      return { date, slots: parseScheduleSlots($) };
+    }),
+  );
+
+  const week = [];
+  for (const day of DAY_NAMES) {
+    const seen = new Set();
+    const items = [];
+    for (const { date, slots } of dayResults) {
+      if (weekdayFromIso(date) !== day) continue;
+      for (const slot of slots) {
+        if (!slot.id || seen.has(slot.id)) continue;
+        seen.add(slot.id);
+        const meta = metaById.get(slot.id);
+        items.push({
+          id: slot.id,
+          title: slot.title || meta?.title || 'Untitled',
+          jname: slot.jname || meta?.jname || null,
+          poster: meta?.poster || null,
+          type: meta?.type || null,
+          airTime: slot.airTime || null,
+          episodeNumber: slot.episodeNumber || null,
+          status: null,
+          aired: null,
+          premiereDate: date,
+          weekday: day,
+          isUpcoming: upcomingIds.has(slot.id),
+        });
+      }
+    }
+    items.sort(
+      (a, b) =>
+        (a.airTime || '99:99').localeCompare(b.airTime || '99:99') ||
+        a.title.localeCompare(b.title),
+    );
+    if (items.length) week.push({ day, items });
+  }
+  return week;
+};
 
 // Normalise a raw `.anisc-info .item` row set into exactly the keys the
 // schedule needs (Aired / Status).
@@ -224,11 +320,28 @@ export const getHianimeSchedule = async ({
         a.title.localeCompare(b.title),
     );
 
-  // Factual weekdays only for premiere-dated titles.
-  const week = [];
-  for (const day of DAY_NAMES) {
-    const items = upcoming.filter((e) => e.weekday === day);
-    if (items.length) week.push({ day, items });
+  // Real weekday calendar from the theme "Estimated Schedule" widget, with
+  // poster/type enriched from the card pool. Falls back to premiere-derived
+  // weekdays if the theme endpoint is unreachable.
+  const metaById = new Map(capped.map((c) => [c.id, c]));
+  const upcomingIds = new Set(upcoming.map((u) => u.id));
+  let week;
+  try {
+    const widget = await themeGet('/schedule/widget?tzOffset=0', `${HIANIME_BASE_URL}/home`);
+    week = await buildRealWeek({
+      targets: pickScheduleDates(widget?.html),
+      metaById,
+      upcomingIds: upcomingIds,
+    });
+  } catch {
+    week = null;
+  }
+  if (!week) {
+    week = [];
+    for (const day of DAY_NAMES) {
+      const items = upcoming.filter((e) => e.weekday === day);
+      if (items.length) week.push({ day, items });
+    }
   }
 
   return {
