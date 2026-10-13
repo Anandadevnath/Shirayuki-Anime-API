@@ -1,5 +1,6 @@
 import { wrapController } from './_cache.js';
 import { getHianimeHomePage } from '../scraper/home.js';
+import { getHianimeSchedule } from '../scraper/schedule.js';
 import { getHianimeSearch, getHianimeBrowse, getHianimeGenre } from '../scraper/search.js';
 import { getHianimeSearchSuggestion } from '../scraper/search-suggestion.js';
 import { getHianimeAnimeDetails, getHianimeEpisodes } from '../scraper/anime.js';
@@ -7,6 +8,11 @@ import { getHianimeAnimeDetails, getHianimeEpisodes } from '../scraper/anime.js'
 export const hianimeHomeController = wrapController({
   cacheKey: () => 'home',
   handler: () => getHianimeHomePage(),
+});
+
+export const hianimeScheduleController = wrapController({
+  cacheKey: () => 'schedule',
+  handler: () => getHianimeSchedule(),
 });
 
 export const hianimeBrowseController = wrapController({

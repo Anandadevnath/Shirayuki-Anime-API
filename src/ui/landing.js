@@ -34,7 +34,7 @@ const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) 
           { label: 'Producer', path: `${b}/producer/toei-animation?page=1`, desc: 'Titles by studio / producer.' },
           { label: 'Genre', path: `${b}/genre/action?page=1`, desc: 'Titles by genre.' },
           { label: 'Category', path: `${b}/category/most-popular?page=1`, desc: 'Curated categories (most-popular, etc.).' },
-          { label: 'Schedule', path: `${b}/schedule?date=2026-06-15&timezone=UTC`, desc: 'Airing schedule for a date.' },
+          { label: 'Schedule', path: `${b}/schedule`, desc: 'Weekly release calendar: weekday-premiere buckets, upcoming premieres (date-sorted) and currently airing.' },
         ],
       },
       {
@@ -68,6 +68,7 @@ export const API_CATALOG = {
             { label: 'Browse', path: '/api/v2/hianime/browse/az-list?page=1', desc: 'Curated / category listing pages (az-list, most-popular, tv, movie...).' },
             { label: 'Anime details', path: '/api/v2/hianime/anime/one-piece-1', desc: 'Synopsis, score, genres, rating & metadata from the detail page.' },
             { label: 'Episodes', path: '/api/v2/hianime/anime/one-piece-1/episodes', desc: 'Full episode list with episode ids and watch URLs.' },
+            { label: 'Schedule', path: '/api/v2/hianime/schedule', desc: 'Weekly release calendar: weekday-premiere buckets, upcoming premieres (date-sorted) and currently airing.' },
           ],
         },
         {

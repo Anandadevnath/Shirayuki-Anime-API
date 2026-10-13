@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import {
   hianimeHomeController,
+  hianimeScheduleController,
   hianimeBrowseController,
   hianimeGenreController,
   hianimeSearchController,
@@ -11,6 +12,7 @@ import {
 
 const router = new Hono();
 router.get('/', hianimeHomeController);
+router.get('/schedule', hianimeScheduleController);
 router.get('/browse/:category', hianimeBrowseController);
 router.get('/genre/:genre', hianimeGenreController);
 router.get('/search', hianimeSearchController);
