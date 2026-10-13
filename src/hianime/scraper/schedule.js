@@ -4,6 +4,7 @@ import {
   pageGet,
   themeGet,
   toAbsoluteUrl,
+  parseAnimeSlug,
 } from './_shared.js';
 import { parseFlwItem } from './cards.js';
 
@@ -108,7 +109,7 @@ const pickScheduleDates = (widgetHtml) => {
 
 // Build the real weekday calendar from the theme schedule endpoint, enriching
 // each slot with poster/type from the card pool (matched by id).
-export const buildRealWeek = async ({ targets, metaById, upcomingIds }) => {
+export const buildRealWeek = async ({ targets, metaById, metaByNumId, upcomingIds }) => {
   const dayResults = await Promise.all(
     targets.map(async (date) => {
       const res = await themeGet(`/schedule/day?tzOffset=0&date=${date}`, `${HIANIME_BASE_URL}/home`);
@@ -126,7 +127,9 @@ export const buildRealWeek = async ({ targets, metaById, upcomingIds }) => {
       for (const slot of slots) {
         if (!slot.id || seen.has(slot.id)) continue;
         seen.add(slot.id);
-        const meta = metaById.get(slot.id);
+        const meta =
+          metaById.get(slot.id) ||
+          (parseAnimeSlug(slot.id)?.id ? metaByNumId.get(parseAnimeSlug(slot.id).id) : null);
         items.push({
           id: slot.id,
           title: slot.title || meta?.title || 'Untitled',
@@ -208,11 +211,69 @@ const mapWithDeadline = async (items, limit, fn, deadlineMs) => {
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
 };
+
+// Read the poster off an anime detail page. The theme schedule endpoints carry no
+// poster at all, so a slot absent from every card listing has to be looked up on
+// its own page. `.anisc-poster` is the same node the detail scraper reads;
+// `og:image` is the resilient fallback (upstream always sets it).
+const detailPoster = ($) => {
+  const $img = $('.anisc-poster .film-poster-img').first();
+  const src = $img.attr('data-src') || $img.attr('src');
+  if (src) return toAbsoluteUrl(src);
+  const og = $('meta[property="og:image"]').first().attr('content');
+  return og ? toAbsoluteUrl(og) : null;
+};
+
+// Index every `.flw-item` card on an already-fetched page into the schedule's
+// poster pool, keyed by BOTH identifiers the listings use: the slug-id the
+// schedule slots carry (last path segment of the card link) and the bare numeric
+// id some pages key cards by. Uses `parseFlwItem` so the poster/type extraction
+// stays identical to the home + browse card paths.
+const indexCardPool = ($, bySlugId, byNumId) => {
+  $('html .flw-item').each((_, el) => {
+    const item = parseFlwItem($)(_, el);
+    const meta = {
+      title: item.title || null,
+      jname: item.jname || null,
+      poster: item.poster || null,
+      type: item.type || null,
+    };
+    const slugId = slugIdFromUrl(item.url);
+    if (slugId && !bySlugId.has(slugId)) bySlugId.set(slugId, meta);
+    if (item.id && !byNumId.has(item.id)) byNumId.set(item.id, meta);
+  });
+};
+
+// Fill posters for week slots the card pool couldn't cover — long-running / niche
+// titles that show up in the schedule widget but in no card listing (Red River,
+// Fabulous Beasts, …). Each is looked up on its own detail page under bounded
+// concurrency with a hard deadline: a slow/flaky page yields null and the slot
+// keeps a posterless card, but can never sink the schedule response.
+const fillWeekPosters = async (week, { concurrency, deadlineMs }) => {
+  const needs = [];
+  for (const day of week) {
+    for (const it of day.items) if (!it.poster) needs.push(it);
+  }
+  if (!needs.length) return;
+  const posters = await mapWithDeadline(
+    needs,
+    concurrency,
+    async (it) => detailPoster(load(await pageGet(`${HIANIME_BASE_URL}/${it.id}`))),
+    deadlineMs,
+  );
+  posters.forEach((poster, i) => {
+    if (poster) needs[i].poster = poster;
+  });
+};
 export const getHianimeSchedule = async ({
   airingLimit = 20,
   upcomingLimit = 15,
   concurrency = 4,
   deadlineMs = 22_000,
+  // Separate (smaller) budget for the detail-page poster fallback pass below —
+  // it runs after the week is already built, so a slow upstream must never eat
+  // the time the rest of the schedule needs.
+  posterDeadlineMs = 15_000,
 } = {}) => {
   const [airingHtml, homeHtml] = await Promise.all([
     pageGet(`${HIANIME_BASE_URL}/top-airing`),
@@ -242,6 +303,17 @@ export const getHianimeSchedule = async ({
         .slice(0, upcomingLimit);
     }
   });
+
+  // Poster pool for the schedule slots: index EVERY card on the two pages we
+  // already fetched (all /top-airing rows + every /home section), not just the
+  // capped candidate lists below. The theme schedule endpoints return no poster,
+  // so this pool is the only zero-request source of slot posters — a wider pool
+  // means fewer slots need the detail-page fallback further down. Keyed by both
+  // the slug-id the slots use and the bare numeric id (listings differ).
+  const poolBySlugId = new Map();
+  const poolByNumId = new Map();
+  indexCardPool($a, poolBySlugId, poolByNumId);
+  indexCardPool($h, poolBySlugId, poolByNumId);
 
   // Dedupe (airing wins) and cap, then enrich with detail-page rows.
   const seen = new Set();
@@ -323,7 +395,10 @@ export const getHianimeSchedule = async ({
   // Real weekday calendar from the theme "Estimated Schedule" widget, with
   // poster/type enriched from the card pool. Falls back to premiere-derived
   // weekdays if the theme endpoint is unreachable.
+  // Candidate meta wins (it already carries detail-page rows); the card pools
+  // fill in every other slot the candidates don't cover.
   const metaById = new Map(capped.map((c) => [c.id, c]));
+  for (const [slugId, meta] of poolBySlugId) if (!metaById.has(slugId)) metaById.set(slugId, meta);
   const upcomingIds = new Set(upcoming.map((u) => u.id));
   let week;
   try {
@@ -331,6 +406,7 @@ export const getHianimeSchedule = async ({
     week = await buildRealWeek({
       targets: pickScheduleDates(widget?.html),
       metaById,
+      metaByNumId: poolByNumId,
       upcomingIds: upcomingIds,
     });
   } catch {
@@ -344,8 +420,12 @@ export const getHianimeSchedule = async ({
     }
   }
 
+  // The theme schedule endpoints carry no poster, and plenty of currently-airing
+  // titles appear in no card listing at all — look up whatever the pools missed
+  // on each slot's own detail page (bounded; see fillWeekPosters).
+  await fillWeekPosters(week, { concurrency, deadlineMs: posterDeadlineMs });
+
   return {
-    source: `${HIANIME_BASE_URL}/home`,
     updatedAt: new Date().toISOString(),
     counted: {
       airing: airing.length,
