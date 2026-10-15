@@ -7,21 +7,24 @@ import {
 import { extractFlwItems } from './cards.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Franchise seasons (serial 1, 2, 3, …).
+// Franchise seasons + movies, serial 1, 2, 3, … (chronological).
 //
-// hianime.at ships NO first-class "seasons" block on detail/watch pages (probed:
-// there is no block_area-relation, no embedded JSON, and the theme API has no
-// /related or /seasons route — only /characters). The reliable sibling source is
-// the site's own search: franchise entries share a base title plus a trailing
-// season marker ("Season 4", "2nd Season", "3rd Season", "Final Season", …).
+// hianime.at ships NO first-class "seasons" block on detail/watch pages. The reliable
+// sibling source is the site's own search: franchise entries share a base title plus
+// a trailing season marker ("Season 4", "2nd Season", "Final Season", …) or a movie
+// label ("Movie 1: …").
 //
 // Hardening vs the naive fuzzy match:
 //  - search the PLAIN base as well ("… Season" keyword hides the base = Season 1);
-//  - drop spin-offs / subtitled extras ("…: Vigilantes Season 2",
-//    "… Season 2: Hero Notebook") via a strict base-prefix + marker remainder test;
+//  - drop spin-offs / subtitled extras ("…: Vigilantes Season 2", "… Season 2: Hero
+//    Notebook") via a strict base-prefix + marker remainder test;
 //  - read the season number from the URL slug first (…-season-N-… is authoritative,
 //    e.g. "My Hero Academia 2" → my-hero-academia-season-2-1031); the visible title
-//    is only a fallback ("2nd Season", "S2", …).
+//    is only a fallback ("2nd Season", "S2", …);
+//  - include franchise MOVIES (type = MOVIE + base prefix) and interleave them
+//    chronologically with the seasons using each entry's detail-page release date.
+//    This is opt-in (`includeMovies` + `withDates`), so the cheap sibling-only path
+//    used by /art stays exactly as before.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Tidy: lowercase, collapse non-alphanumerics to single spaces.
@@ -32,15 +35,16 @@ const tidy = (v) =>
     .trim()
     .replace(/\s+/g, ' ');
 
-// "Foo Season 4" → "Foo"; "Franchise 2nd Season" → "Franchise"; "Foo Part 2" → "Foo".
+// "Foo Season 4" → "Foo"; "Franchise 2nd Season" → "Franchise"; "Foo Part 2" → "Foo";
+// "Foo Movie 2: Subtitle" → "Foo" (so a movie entry also derives the franchise base).
 export const toBaseTitle = (title) => {
   const t = String(title || '').trim();
   if (!t) return '';
   const m = t.match(
-    /(?:\bSeason\s*\d+(?:\s*[-:(]\s*\d+)?\b)|(?:\b\d+(?:st|nd|rd|th)\s*Season\b)|(?:\bS\d+\b)|(?:\bPart\s*\d+\b)|(?:\bFinal\s*Season\b)/i,
+    /(?:\bSeason\s*\d+(?:\s*[-:(]\s*\d+)?\b)|(?:\b\d+(?:st|nd|rd|th)\s*Season\b)|(?:\bS\d+\b)|(?:\bPart\s*\d+\b)|(?:\bFinal\s*Season\b)|(?:\b(?:the\s+)?Movie\s*\d+(?:\s*[:\-–]\s*.*)?\b)/i,
   );
   const base = m ? t.slice(0, m.index) : t;
-  return base.replace(/[s:,;|/._-]+$/g, '').trim();
+  return base.replace(/[ :,;|/._\-\u2013\u2014]+$/g, '').trim();
 };
 
 // Season number from the URL slug: "my-hero-academia-season-2-1031" → 2.
@@ -67,7 +71,7 @@ const parsePartNumber = (title) => {
 };
 
 // True when the title is exactly `<base>` OR `<base>` + a pure season marker.
-// Anything extra (spin-offs, subtitled specials, movies) is rejected:
+// Anything extra (spin-offs, subtitled specials, movies) is rejected here:
 //   ✓ "My Hero Academia", "My Hero Academia 2", "… 5th Season",
 //     "… Season 6", "… 2nd Season", "… Final Season", "… S2"
 //   ✗ "My Hero Academia: Vigilantes Season 2", "… Season 2: Hero Notebook"
@@ -86,6 +90,27 @@ const isPureSeasonTitle = (title, base) => {
   return /^(?:season\s*\d+|s\d+|\d+(?:st|nd|rd|th)\s*season|\d+|part\s*\d+|season\s*\d+\s+part\s*\d+|final\s*season)$/i.test(
     remainder,
   );
+};
+
+// True when the card is a franchise MOVIE: type = MOVIE and the title starts with
+// the base plus a subtitle. Spin-offs are TV/ONA/SPECIAL so the type gate drops them
+// ("My Hero Academia: Vigilantes Season 2" is TV → not a movie).
+//   ✓ "My Hero Academia Movie 1: Two Heroes", "My Hero Academia the Movie 2: Heroes Rising"
+//   ✓ "My Hero Academia: UA Heroes Battle"
+//   ✗ "My Hero Academia: Vigilantes" (TV), "… Season 2: Hero Notebook" (SPECIAL)
+const isFranchiseMovie = (card, base) => {
+  const type = String(card.type || '').toUpperCase();
+  if (type !== 'MOVIE') return false;
+  const t = tidy(card.title);
+  const b = tidy(base);
+  if (!t || !b) return false;
+  const tWords = t.split(' ');
+  const bWords = b.split(' ');
+  if (tWords.length <= bWords.length) return false; // needs a subtitle
+  for (let i = 0; i < bWords.length; i++) {
+    if (tWords[i] !== bWords[i]) return false;
+  }
+  return true;
 };
 
 // Season number for a card, or null to keep-and-sort-last ("Final Season").
@@ -109,6 +134,60 @@ export const parseAnimeFullTitle = ($) => {
     .trim();
 };
 
+// Release date (ms) of an entry from its detail page "Aired"/"Premiered" rows:
+// "Aug 3, 2018 to Aug 3, 2018" → 2018-08-03; "Summer 2018"/"2018" → 2018-01-01.
+const fetchReleaseDate = async (slugId) => {
+  let html;
+  try {
+    html = await pageGet(`${HIANIME_BASE_URL}/${slugId}`);
+  } catch {
+    return null;
+  }
+  const $ = load(html);
+  const values = {};
+  $('.anisc-info .item').each((_, el) => {
+    const item = $(el);
+    const head = item.find('.item-head').first().text().trim().replace(/:$/, '').trim();
+    if (head !== 'Aired' && head !== 'Premiered') return;
+    const v = item.find('.text').first().text().trim() || item.find('.name').first().text().trim() || '';
+    if (v && !values[head]) values[head] = v;
+  });
+
+  const msFrom = (raw) => {
+    if (!raw) return null;
+    const m = String(raw).match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})/);
+    if (m) {
+      const t = Date.parse(m[1]);
+      if (Number.isFinite(t)) return t;
+    }
+    const y = String(raw).match(/(\d{4})/);
+    if (y) {
+      const t = Date.parse(`${y[1]}-01-01`);
+      if (Number.isFinite(t)) return t;
+    }
+    return null;
+  };
+
+  return msFrom(values['Aired']) ?? msFrom(values['Premiered']) ?? null;
+};
+
+// Run `fn` over `items` with at most `limit` concurrent calls, preserving order.
+const mapLimit = async (items, limit, fn) => {
+  const out = new Array(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i], i);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return out;
+};
+
 export const getHianimeSeasons = async ({ animeId } = {}) => {
   const raw = String(animeId || '').trim();
   if (!raw) {
@@ -121,12 +200,24 @@ export const getHianimeSeasons = async ({ animeId } = {}) => {
   const detailHtml = await pageGet(detailUrl);
   const $ = load(detailHtml);
   const fullTitle = parseAnimeFullTitle($);
-  return searchFranchiseSeasons({ fullTitle, clean, detailUrl });
+  return searchFranchiseSeasons({
+    fullTitle,
+    clean,
+    detailUrl,
+    includeMovies: true,
+    withDates: true,
+  });
 };
 
 // Shared franchise discovery. Callers who already hold the detail page may
 // skip the re-fetch by providing fullTitle + clean + detailUrl directly.
-export const searchFranchiseSeasons = async ({ fullTitle, clean, detailUrl }) => {
+export const searchFranchiseSeasons = async ({
+  fullTitle,
+  clean,
+  detailUrl,
+  includeMovies = false,
+  withDates = false,
+}) => {
   const base = toBaseTitle(fullTitle);
   if (!base) {
     return { source: detailUrl, total: 0, seasons: [] };
@@ -154,14 +245,16 @@ export const searchFranchiseSeasons = async ({ fullTitle, clean, detailUrl }) =>
     }
   }
 
-  // Keep only pure franchise seasons and order serially 1, 2, 3, …
+  // Keep pure franchise seasons plus (optionally) franchise movies.
   const seasons = [];
   for (const card of cards) {
-    if (!isPureSeasonTitle(card.title, base)) continue; // spin-off / movie / subtitled extra
-    const season = seasonOf(card, base); // numeric, or null for a kept "Final Season"
+    const isSeasonLike = isPureSeasonTitle(card.title, base);
+    const isMovieLike = includeMovies && isFranchiseMovie(card, base);
+    if (!isSeasonLike && !isMovieLike) continue; // spin-off / ONA / subtitled extra
     const slugId = card.url ? String(card.url).split('/').pop() : (card.id && `${card.id}`) || '';
     if (!slugId) continue;
-    const part = parsePartNumber(card.title);
+    const season = isSeasonLike ? seasonOf(card, base) : null;
+    const part = isSeasonLike ? parsePartNumber(card.title) : null;
     const slugIdFromUrl = card.url ? String(card.url).split('/').pop() : null;
     const isCurrent = currentIdOf(clean)
       ? String(card.id) === String(currentIdOf(clean))
@@ -175,22 +268,41 @@ export const searchFranchiseSeasons = async ({ fullTitle, clean, detailUrl }) =>
       episodes: card.episodes,
       year: null,
       isCurrent,
+      isMovie: isMovieLike,
       season,
       part,
       order: null,
     });
   }
 
-  // Stable ordering by season/part; entries without a parsed number (e.g. an
-  // unnumbered "Final Season", season 99) fall after the numbered ones, then
-  // assign an explicit `order` so the frontend never has to guess.
+  // Chronological interleave: fetch each entry's release date in parallel
+  // (bounded concurrency) and sort by it so movies land between the right seasons.
+  if (withDates && seasons.length > 1) {
+    const dates = await mapLimit(seasons, 4, (s) => fetchReleaseDate(s.id));
+    seasons.forEach((s, i) => (s._date = dates[i]));
+  }
+
+  // Sort: release date first, then seasons before movies, then season/part.
+  // Entries without a date fall back to their season number so unnumbered
+  // ones ("Final Season", null) still land after the numbered ones.
   seasons.sort((a, b) => {
+    const da = a._date ?? null;
+    const db = b._date ?? null;
+    if (da != null && db != null && da !== db) return da - db;
+    if (da != null && db == null) return -1;
+    if (da == null && db != null) return 1;
+    const ma = a.isMovie ? 1 : 0;
+    const mb = b.isMovie ? 1 : 0;
+    if (ma !== mb) return ma - mb;
     const sa = a.season ?? 99;
     const sb = b.season ?? 99;
     if (sa !== sb) return sa - sb;
     return (a.part ?? 0) - (b.part ?? 0);
   });
-  seasons.forEach((s, i) => (s.order = i));
+  seasons.forEach((s, i) => {
+    s.order = i;
+    delete s._date;
+  });
 
   return {
     source: `${HIANIME_BASE_URL}/search?keyword=${encodeURIComponent(base)}`,
@@ -203,3 +315,7 @@ export const searchFranchiseSeasons = async ({ fullTitle, clean, detailUrl }) =>
 
 // Numeric id extracted from a slug-id ("one-piece-1" → "1"); null when bare slug.
 const currentIdOf = (clean) => parseAnimeSlug(clean)?.id || null;
+
+
+
+
