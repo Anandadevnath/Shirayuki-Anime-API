@@ -1,6 +1,7 @@
 import { getHianimeEpisodeServers } from './episode-servers.js';
 import { resolveMegaplay, decodeServerHash as decodeMegaplayHash } from './megaplay.js';
 import { resolveVidplay, decodeServerHash as decodeVidplayHash } from './vidplay.js';
+import { resolveZokoAnime, isZokoAnimeEmbed } from './zokoanime.js';
 import { normalizeCategory, normalizeServerName } from './_shared.js';
 
 // Hosts that resolve through the megaplay (getSources) flow.
@@ -12,6 +13,10 @@ const tryResolve = async (server) => {
   if (!server?.hash) throw new Error('server has no hash to resolve');
   const embed = decodeMegaplayHash(server.hash) || decodeVidplayHash(server.hash);
   if (isMegaplayEmbed(embed)) return resolveMegaplay(server.hash);
+  if (isZokoAnimeEmbed(embed)) {
+    // The hash decodes to the embed URL itself — pass it straight through.
+    return resolveZokoAnime(embed);
+  }
   return resolveVidplay(server.hash);
 };
 
@@ -70,6 +75,8 @@ export const getHianimeEpisodeSources = async ({ episodeId, animeEpisodeId, ep, 
         tracks: resolved.tracks || [],
         intro: resolved.intro,
         outro: resolved.outro,
+        // Per-host referer for the CDN (also used to build the proxy `ref`).
+        referer: resolved.referer || null,
       };
     } catch (error) {
       lastError = error;

@@ -28,6 +28,9 @@ const buildPlayUrl = (c, params) => {
 
 const withProxiedSources = (c, data, params) => {
   const origin = getRequestOrigin(c);
+  // Per-host referer from the resolver (e.g. https://zokoanime.video/); keep the
+  // megaplay origin as the fallback so existing megaplay/vidplay flows are unchanged.
+  const srcReferer = data.referer || 'https://megaplay.buzz/';
   const sources = (data.link
     ? [
         {
@@ -36,7 +39,7 @@ const withProxiedSources = (c, data, params) => {
           quality: 'auto',
           proxyM3u8: buildPlayUrl(c, params),
           embeddedUrl: data.link
-            ? `${origin}/api/v2/hianime/proxy?url=${encodeURIComponent(data.link)}&ref=${encodeURIComponent('https://megaplay.buzz/')}`
+            ? `${origin}/api/v2/hianime/proxy?url=${encodeURIComponent(data.link)}&ref=${encodeURIComponent(srcReferer)}`
             : null,
         },
       ]
