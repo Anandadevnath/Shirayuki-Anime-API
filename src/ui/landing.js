@@ -68,6 +68,8 @@ export const API_CATALOG = {
             { label: 'Browse', path: '/api/v2/hianime/browse/az-list?page=1', desc: 'Curated / category listing pages (az-list, most-popular, tv, movie...).' },
             { label: 'Anime details', path: '/api/v2/hianime/anime/one-piece-1', desc: 'Synopsis, score, genres, rating & metadata from the detail page.' },
             { label: 'Episodes', path: '/api/v2/hianime/anime/one-piece-1/episodes', desc: 'Full episode list with episode ids and watch URLs.' },
+            { label: 'Seasons', path: '/api/v2/hianime/anime/one-piece-1/seasons', desc: 'Franchise seasons derived from search: base-title, season markers, stable ordering.' },
+            { label: 'Art (watching)', path: '/api/v2/hianime/anime/one-piece-1/art', desc: 'Bundle for the anime being watched: title art + sibling posters, artists, characters & company.' },
             { label: 'Schedule', path: '/api/v2/hianime/schedule', desc: 'Weekly release calendar: weekday-premiere buckets, upcoming premieres (date-sorted) and currently airing.' },
           ],
         },
