@@ -9,8 +9,9 @@ import {
 
 // Same AES-256-CBC scheme the megal.cloud family uses (also in hianime's
 // megaplay.js). Seeds lifted from the player's front-end bundle.
-const AES_KEY_SEED = "i?LMTAx0Q6,:}50U";
-const AES_IV_SEED = "W0;27ToaUpl_P%'c";
+// Overridable via env so the seeds aren't fixed in source control.
+const AES_KEY_SEED = process.env.MEGAPLAY_AES_KEY_SEED || "i?LMTAx0Q6,:}50U";
+const AES_IV_SEED = process.env.MEGAPLAY_AES_IV_SEED || "W0;27ToaUpl_P%'c";
 
 const toKeyBytes = (seed, length) => {
   const buf = Buffer.alloc(length);

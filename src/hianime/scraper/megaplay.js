@@ -4,8 +4,9 @@ import { MEGAPLAY_BASE_URL, HIANIME_BASE_URL, DEFAULT_UA } from './_shared.js';
 
 // AES key/iv seeds lifted from https://megaplay.buzz/lib/newclient.min.js — the
 // player decrypts the getSources `enc` field with these using AES-256-CBC.
-const AES_KEY_SEED = "i?LMTAx0Q6,:}50U";
-const AES_IV_SEED = "W0;27ToaUpl_P%'c";
+// Overridable via env so the seeds aren't fixed in source control.
+const AES_KEY_SEED = process.env.MEGAPLAY_AES_KEY_SEED || "i?LMTAx0Q6,:}50U";
+const AES_IV_SEED = process.env.MEGAPLAY_AES_IV_SEED || "W0;27ToaUpl_P%'c";
 
 const toKeyBytes = (seed, length) => {
   const buf = Buffer.alloc(length);
