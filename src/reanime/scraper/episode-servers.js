@@ -1,4 +1,4 @@
-import { REANIME_BASE_URL, flixGet } from '../_shared.js';
+import { REANIME_BASE_URL, flixGet, normalizeCategory } from '../_shared.js';
 import { fetchReanimeAnime } from './anime.js';
 
 // Server list for one episode via reanime's flix resolver:
@@ -30,7 +30,7 @@ export const getReanimeEpisodeServers = async ({ animeId, ep } = {}) => {
   const servers = (data?.servers || []).map((s) => ({
     id: s.$id || null,
     name: s.serverName || null,
-    category: s.dataType || null,
+    category: normalizeCategory(s.dataType),
     embedUrl: s.dataLink || null,
     softsub: Boolean(s.softsub),
     continue: Boolean(s.continue),

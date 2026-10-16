@@ -55,6 +55,13 @@ export const normalizeAnimeId = (raw) => {
 
 export const buildAnimeUrl = (animeId) => `${REANIME_BASE_URL}/anime/${encodeURIComponent(animeId)}`;
 
+// Normalize a server/subtitle category to 'sub' or 'dub'. Shared by the servers
+// and sources scrapers so both classify the same flix `dataType` identically.
+export const normalizeCategory = (category) => {
+  const value = String(category || 'sub').toLowerCase().trim();
+  return value === 'dub' || value === 'd' ? 'dub' : 'sub';
+};
+
 // Map a reanime anime card (home/search/listing share this shape) to the shared
 // card shape used across providers. `episodes` is the total episode count, with
 // sub/dub counts when the payload carries them.

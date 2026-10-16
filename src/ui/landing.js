@@ -164,21 +164,30 @@ export const API_CATALOG = {
           title: 'Listings',
           items: [
             { label: 'Home', path: '/api/v2/reanime', desc: 'Trending, latest-aired, new-on-site & upcoming rows from reanime.to/api/v1/home.' },
-            { label: 'Anime details', path: '/api/v2/reanime/anime/go-lion-4q2k84', desc: 'Synopsis, score, genres, tags, external ids & air dates.' },
+            { label: 'Schedule', path: '/api/v2/reanime/schedule', desc: 'Weekly release calendar (UTC): per-day episode buckets + flat date-sorted list.' },
+            { label: 'Catalog', path: '/api/v2/reanime/catalog?page=1&format=TV', desc: 'Full-catalog browse; filters: format, status, season, year (sort is ignored upstream).' },
+            { label: 'Genre', path: '/api/v2/reanime/genre/action?page=1', desc: 'Titles by genre.' },
+            { label: 'Anime details', path: '/api/v2/reanime/anime/go-lion-4q2k84', desc: 'Synopsis, score, genres, tags, external ids, studios & air dates.' },
             { label: 'Episodes', path: '/api/v2/reanime/anime/go-lion-4q2k84/episodes', desc: 'Episode list with titles, thumbnails, fillers & air dates (paginated).' },
+            { label: 'Seasons', path: '/api/v2/reanime/anime/go-lion-4q2k84/seasons', desc: 'Franchise relations + external season counts.' },
+            { label: 'Characters', path: '/api/v2/reanime/anime/go-lion-4q2k84/characters', desc: 'Character list with roles.' },
+            { label: 'Artists', path: '/api/v2/reanime/anime/go-lion-4q2k84/artists', desc: 'Staff list with roles.' },
+            { label: 'Art', path: '/api/v2/reanime/anime/go-lion-4q2k84/art', desc: 'Poster/banner/colour, studios & artwork images.' },
           ],
         },
         {
           title: 'Search',
           items: [
-            { label: 'Search', path: '/api/v2/reanime/search?q=naruto', desc: 'Keyword search over reanime.to/api/v1/search.' },
+            { label: 'Search', path: '/api/v2/reanime/search?q=naruto', desc: 'Keyword search; filters: format, status, season, year, genre.' },
             { label: 'Suggestions', path: '/api/v2/reanime/search/suggestion?q=naruto', desc: 'Autocomplete-style suggestions.' },
           ],
         },
         {
           title: 'Streaming',
           items: [
-            { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=go-lion-4q2k84&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links. Streams are token+IP locked server-side, so only server lists + embed URLs are returned.' },
+            { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=go-lion-4q2k84&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links.' },
+            { label: 'Episode sources', path: '/api/v2/reanime/episode/sources?animeId=go-lion-4q2k84&ep=1', desc: 'hianime-shaped response: link/tracks/sources. Playback is browser-only (embed URL + proxyM3u8 play page); reanime streams are token+IP locked and client-decrypted, so no server-side m3u8.' },
+            { label: 'Player page', path: '/api/v2/reanime/play?animeId=go-lion-4q2k84&ep=1', desc: 'Built-in browser player: frames the flixcloud embed (the only way to play reanime streams).' },
           ],
         },
       ],
