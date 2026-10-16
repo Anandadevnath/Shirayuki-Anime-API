@@ -20,7 +20,9 @@ Each provider under `src/<provider>/` follows the same shape:
 - `controllers/` — wrap scrapers with `_cache.js`; hold validation and response envelope
 - `router/` — Hono routers mapping paths to controllers
 
-Providers: `anikoto`, `hianime`, `animex` (newest, GraphQL + SvelteKit `__data.json` decode), plus `scrapling` (Python bridge). README only documents anikoto/hianime — **`animex` is real and mounted but undocumented there.**
+Providers: `anikoto`, `hianime`, `animex` (newest, GraphQL + SvelteKit `__data.json` decode), `reanime` (public JSON API), plus `scrapling` (Python bridge). README only documents anikoto/hianime — **`animex` and `reanime` are real and mounted but undocumented there.**
+
+`reanime` differs from the others: it is a pure JSON-API provider (`reanime.to/api/v1/*`), no HTML/cheerio. Its streams are **not proxyable** — the flix resolver (`/api/flix/{anilistId}/{ep}?mal=...`) hands back flixcloud embed links whose real `.m3u8` is minted with a JWT bound to the requester's IP (a plain server-side fetch returns 403, and segments are AES-128). So `reanime` exposes listings/search/details/episodes/servers only, with **no `/episode/sources`, `/proxy`, or `/play`** — do not add them expecting them to work.
 
 ## Conventions
 
@@ -34,7 +36,9 @@ Providers: `anikoto`, `hianime`, `animex` (newest, GraphQL + SvelteKit `__data.j
 
 - `/api/v2/scrapling/fetch` spawns `scripts/scrapling_worker.py` via `child_process`, reading the request as JSON on stdin and returning JSON on stdout.
 - Interpreter resolution order (`src/scrapling/index.js`): `SCRAPLING_PYTHON` env → `.venv/bin/python` → `.venv/Scripts/python.exe` → `python3`.
-- Vanilla fetch needs no browser; `js=1` needs Playwright and `stealth=1` needs Scrapling's anti-bot extras installed in `.venv`. There is **no `requirements.txt`** — the Python deps are not declared anywhere and must be installed into `.venv` manually.
+- Vanilla fetch needs no browser; `js=1` needs Playwright and `stealth=1` needs Scrapling's anti-bot extras, both installed via `requirements.txt` (`scrapling[fetchers]`) plus `scrapling install` for browser binaries into `.venv`.
+- Setup: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/scrapling install`. Versions: Scrapling 0.4.15. `requirements.txt` declares only the top-level dep; the rest is transitive.
+- `scripts/scrapling_worker.py` uses the 0.4.x API: `Fetcher.get`, `DynamicFetcher.fetch`, `StealthyFetcher.fetch`.
 
 ## Deploy
 

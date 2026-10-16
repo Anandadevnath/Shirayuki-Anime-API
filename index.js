@@ -11,6 +11,8 @@ import animexListingsRouter from "./src/animex/router/listings.js";
 import animexEpisodeServersRouter from "./src/animex/router/episode-servers.js";
 import animexEpisodeSourcesRouter from "./src/animex/router/streaming-server.js";
 import animexProxyRouter from "./src/animex/router/proxy.js";
+import reanimeListingsRouter from "./src/reanime/router/listings.js";
+import reanimeEpisodeServersRouter from "./src/reanime/router/episode-servers.js";
 import hianimeListingsRouter from "./src/hianime/router/listings.js";
 import hianimeEpisodeServersRouter from "./src/hianime/router/episode-servers.js";
 import hianimeEpisodeSourcesRouter from "./src/hianime/router/streaming-server.js";
@@ -53,6 +55,9 @@ app.route("/api/v2/animex", animexListingsRouter);
 app.route("/api/v2/animex/episode", animexEpisodeServersRouter);
 app.route("/api/v2/animex/episode/sources", animexEpisodeSourcesRouter);
 app.route("/api/v2/animex/proxy", animexProxyRouter);
+
+app.route("/api/v2/reanime", reanimeListingsRouter);
+app.route("/api/v2/reanime/episode", reanimeEpisodeServersRouter);
 
 app.route("/api/v2/scrapling", scraplingRouter);
 

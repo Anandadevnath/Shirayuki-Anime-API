@@ -13,6 +13,7 @@ const parseJsonQuery = (value) => {
 export const scraplingFetchController = async (c) => {
   const url = c.req.query("url") || null;
   const js = c.req.query("js") === "true";
+  const stealth = c.req.query("stealth") === "true";
   const proxy = c.req.query("proxy") || null;
   const headers = parseJsonQuery(c.req.query("headers"));
   const extract = Array.isArray(parseJsonQuery(c.req.query("extract")))
@@ -29,7 +30,7 @@ export const scraplingFetchController = async (c) => {
 
   const start = Date.now();
   try {
-    const result = await scraplingFetch({ url, js, proxy, headers, extract, timeout });
+    const result = await scraplingFetch({ url, js, stealth, proxy, headers, extract, timeout });
     const extractionTimeSec = Number(((Date.now() - start) / 1000).toFixed(3));
     return c.json({
       success: !!result.ok,

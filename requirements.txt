@@ -1,0 +1,10 @@
+# Python deps for the Scrapling bridge (scripts/scrapling_worker.py).
+#
+# Setup:
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r requirements.txt
+#   .venv/bin/scrapling install          # downloads the browser binaries for js/stealth
+#
+# The Node bridge (src/scrapling/index.js) auto-detects .venv/bin/python.
+# `[fetchers]` pulls curl_cffi + Patchright/Playwright so js=1 and stealth=1 work.
+scrapling[fetchers]==0.4.15

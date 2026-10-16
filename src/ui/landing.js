@@ -154,6 +154,35 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'reanime',
+      name: 'Re:ANIME',
+      accent: '#f59e0b',
+      source: 'reanime.to public JSON API',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/reanime', desc: 'Trending, latest-aired, new-on-site & upcoming rows from reanime.to/api/v1/home.' },
+            { label: 'Anime details', path: '/api/v2/reanime/anime/go-lion-4q2k84', desc: 'Synopsis, score, genres, tags, external ids & air dates.' },
+            { label: 'Episodes', path: '/api/v2/reanime/anime/go-lion-4q2k84/episodes', desc: 'Episode list with titles, thumbnails, fillers & air dates (paginated).' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/reanime/search?q=naruto', desc: 'Keyword search over reanime.to/api/v1/search.' },
+            { label: 'Suggestions', path: '/api/v2/reanime/search/suggestion?q=naruto', desc: 'Autocomplete-style suggestions.' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=go-lion-4q2k84&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links. Streams are token+IP locked server-side, so only server lists + embed URLs are returned.' },
+          ],
+        },
+      ],
+    },
   ],
 };
 
