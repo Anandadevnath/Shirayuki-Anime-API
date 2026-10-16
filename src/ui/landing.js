@@ -122,6 +122,37 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'animex',
+      name: 'Animex',
+      accent: '#60a5fa',
+      source: 'animex.one GraphQL + pp player API',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/animex', desc: 'Trending, popular, latest additions (site GraphQL catalog) & recent episode releases.' },
+            { label: 'Anime details', path: '/api/v2/animex/anime/naruto-20', desc: 'Synopsis, score, genres, studios, characters, relations & recommendations.' },
+            { label: 'Episodes', path: '/api/v2/animex/anime/naruto-20/episodes', desc: 'Episode list with titles, fillers & thumbnails from the player API.' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/animex/search?q=naruto&page=1', desc: 'Keyword search over the site catalog (GraphQL catalogAnime).' },
+            { label: 'Suggestions', path: '/api/v2/animex/search/suggestion?q=naruto', desc: 'Autocomplete-style suggestions.' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode servers', path: '/api/v2/animex/episode/servers?animeId=naruto-20&ep=1', desc: 'Available sub/dub providers (Nero, Yuki, Zuna...) for an episode.' },
+            { label: 'Episode sources', path: '/api/v2/animex/episode/sources?animeId=naruto-20&ep=1&server=nero&category=sub', desc: 'Playable m3u8 + subtitle tracks + intro/outro chapters.' },
+            { label: 'Stream proxy', path: '/api/v2/animex/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true },
+          ],
+        },
+      ],
+    },
   ],
 };
 
