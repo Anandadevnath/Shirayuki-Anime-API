@@ -4,22 +4,19 @@ import {
 } from '../_shared.js';
 import { getAnimexCatalog } from './home.js';
 
-// Keyword search over the site's own catalogAnime GraphQL (the same call the
-// client-side FastSearch widget issues with filter.query).
-export const getAnimexSearch = async ({ q, page } = {}) => {
+// Keyword search over the site's own catalogAnime (the same call the site's
+// /catalog page issues with filter.query). `q` is optional: when omitted the
+// endpoint paginates the entire catalog exactly like animex.one/catalog
+// (20k+ titles, 691 pages at the site's 30-per-page).
+export const getAnimexSearch = async ({ q, page, perPage = 30 } = {}) => {
   const keyword = String(q || '').trim();
-  if (!keyword) {
-    const err = new Error('q query parameter is required');
-    err.status = 400;
-    throw err;
-  }
 
   const normalizedPage = Math.max(1, Number(page) || 1);
   return getAnimexCatalog({
     sort: 'popular',
     page: normalizedPage,
-    perPage: 24,
-    filter: { query: keyword },
+    perPage,
+    filter: keyword ? { query: keyword } : {},
   });
 };
 

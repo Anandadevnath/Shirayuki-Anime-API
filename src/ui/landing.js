@@ -139,7 +139,8 @@ export const API_CATALOG = {
         {
           title: 'Search',
           items: [
-            { label: 'Search', path: '/api/v2/animex/search?q=naruto&page=1', desc: 'Keyword search over the site catalog (GraphQL catalogAnime).' },
+            { label: 'Catalog', path: '/api/v2/animex/catalog?page=1', desc: 'Full catalog browse like the site /catalog page (691 pages, 30/page). Supports q, page, sort & perPage.' },
+            { label: 'Search', path: '/api/v2/animex/search?q=naruto&page=1', desc: 'Keyword search over the site catalog (GraphQL catalogAnime). q optional — omit for full-catalog pagination.' },
             { label: 'Suggestions', path: '/api/v2/animex/search/suggestion?q=naruto', desc: 'Autocomplete-style suggestions.' },
           ],
         },

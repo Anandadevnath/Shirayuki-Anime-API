@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import {
   animexHomeController,
+  animexCatalogController,
   animexSearchController,
   animexSearchSuggestionController,
   animexAnimeController,
@@ -9,6 +10,7 @@ import {
 
 const router = new Hono();
 router.get('/', animexHomeController);
+router.get('/catalog', animexCatalogController);
 router.get('/search', animexSearchController);
 router.get('/search/suggestion', animexSearchSuggestionController);
 router.get('/anime/:animeId', animexAnimeController);
