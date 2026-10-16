@@ -5,6 +5,7 @@ import {
   DEFAULT_UA,
   decodeSvelteKitData,
   buildWatchUrl,
+  graphqlPost,
   kebabize,
   normalizeAnimeId,
 } from '../_shared.js';
@@ -39,13 +40,18 @@ const mapAnimeInfo = (info) => {
   const toArray = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : v ? [v] : []);
   const characters = toArray(info.characters?.edges || info.characters).map(mapCharacter);
   const relations = toArray(info.relations?.edges || info.relations).map(mapRelation);
-  const recommendations = toArray(info.recommendations).map((r) => ({
-    id: r.id,
-    title: r.title?.english || r.title?.romaji || null,
-    jname: r.romajiTitle || null,
-    poster: r.coverImage?.large || r.coverImage?.extraLarge || null,
-    episodes: r.episodes ?? null,
-  }));
+  const recommendations = toArray(info.recommendations).map((r) => {
+    // Edges arrive as { mediaRecommendation: {...} } (occasionally flattened);
+    // read from mediaRecommendation first or every field resolves to null.
+    const m = r?.mediaRecommendation || r || {};
+    return {
+      id: m.id ?? null,
+      title: m.title?.english || m.title?.romaji || m.englishTitle || m.romajiTitle || null,
+      jname: m.romajiTitle || m.title?.romaji || null,
+      poster: m.coverImage?.large || m.coverImage?.extraLarge || null,
+      episodes: m.episodeCount ?? m.episodes ?? null,
+    };
+  });
   const kebab = String(info.titleRomaji || info.titleEnglish || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -59,7 +65,7 @@ const mapAnimeInfo = (info) => {
     publicId: `${kebab}-${info.anilistId ?? ''}`,
     title: info.titleEnglish || info.titleRomaji || null,
     jname: info.titleRomaji || null,
-    native: info.nativeTitle || null,
+    native: info.nativeTitle || info.titles?.ja || null,
     aliases: Object.values(info.titles || {}).filter(Boolean),
     poster: info.coverImage?.extraLarge || info.coverImage?.large || null,
     banner: info.bannerImage || info.bannerUrl || null,
@@ -177,6 +183,87 @@ export const fetchEpisodes = async (internalId) => {
   }));
 };
 
+// Single-anime GraphQL node. Backfills fields the SvelteKit page payload
+// leaves null/absent: trailerId, subCount, dubCount, duration, synonyms,
+// voice-acted characters, tags, external links, start/end dates.
+const ANIME_NODE_QUERY = `
+query AnimeNode($id: ID!) {
+  anime(id: $id) {
+    id
+    synonyms
+    trailerId
+    duration
+    subCount
+    dubCount
+    characters
+    tagsRaw
+    externalLinks
+    countryOfOrigin
+    rating
+    startDateYear
+    startDateMonth
+    startDateDay
+    endDateYear
+    endDateMonth
+    endDateDay
+  }
+}`;
+
+// Single-anime GraphQL lookup; null on any failure so details are still served
+// from the page payload alone.
+const fetchAnimeNode = async (internalId) => {
+  if (!internalId) return null;
+  try {
+    const payload = await graphqlPost(ANIME_NODE_QUERY, { id: internalId });
+    return payload?.data?.anime || null;
+  } catch {
+    return null;
+  }
+};
+
+// Fill the fields the page payload can't provide (only where it came up
+// short), so upstream-null stays null and nothing is overwritten.
+const enrichDetails = (details, node) => {
+  if (!node) return details;
+  const titleAliases = Array.isArray(details.aliases) ? details.aliases : [];
+  const synonyms = (node.synonyms || []).filter(Boolean);
+  const characters = (node.characters || []).map((ch) => ({
+    id: ch?.id ?? null,
+    role: ch?.role || null,
+    name: ch?.name || null,
+    image: ch?.image || null,
+    voiceActors: (ch?.voiceActors || []).map((va) => ({
+      name: va?.name || null,
+      image: va?.image || null,
+      language: va?.language || null,
+    })),
+  }));
+  const dateOf = (y, m, d) => (y ? { year: y, month: y && m ? m : null, day: y && m && d ? d : null } : null);
+  const tagName = (t) => (typeof t === 'string' ? t : t?.name || null);
+
+  return {
+    ...details,
+    trailerId: details.trailerId || node.trailerId || null,
+    duration: details.duration ?? node.duration ?? null,
+    subCount: details.subCount ?? node.subCount ?? null,
+    dubCount: details.dubCount ?? node.dubCount ?? null,
+    aliases: [...new Set([...titleAliases, ...synonyms])].filter(Boolean),
+    // page-payload characters never carry voice actors; prefer the node's
+    characters: characters.length ? characters : details.characters,
+    tags: (node.tagsRaw || []).map(tagName).filter(Boolean),
+    externalLinks: (node.externalLinks || []).map((l) => ({
+      site: l?.site || null,
+      url: l?.url || null,
+      type: l?.type || null,
+      language: l?.language || null,
+    })),
+    startDate: dateOf(node.startDateYear, node.startDateMonth, node.startDateDay),
+    endDate: dateOf(node.endDateYear, node.endDateMonth, node.endDateDay),
+    countryOfOrigin: node.countryOfOrigin || null,
+    rating: node.rating || null,
+  };
+};
+
 // Full anime details: SvelteKit payload + pp episode list.
 export const getAnimexAnimeDetails = async ({ animeId } = {}) => {
   const clean = normalizeAnimeId(animeId);
@@ -187,23 +274,24 @@ export const getAnimexAnimeDetails = async ({ animeId } = {}) => {
   }
 
   const { details } = await fetchAnimeInfo(clean);
+  const enriched = enrichDetails(details, await fetchAnimeNode(details.animeId));
 
   let episodes = [];
   try {
-    episodes = await fetchEpisodes(details.animeId);
+    episodes = await fetchEpisodes(enriched.animeId);
   } catch {
     episodes = [];
   }
 
   return {
-    ...details,
-    url: `${ANIMEX_BASE_URL}/anime/${details.publicId}`,
-    totalEpisodes: details.totalEpisodes || episodes.length,
+    ...enriched,
+    url: `${ANIMEX_BASE_URL}/anime/${enriched.publicId}`,
+    totalEpisodes: enriched.totalEpisodes || episodes.length,
     episodesList: episodes.map((e) => ({
       ...e,
-      url: `/watch/${details.publicId}-episode-${e.episode}`,
+      url: `/watch/${enriched.publicId}-episode-${e.episode}`,
     })),
-    episodes: { total: episodes.length || details.totalEpisodes },
+    episodes: { total: episodes.length || enriched.totalEpisodes },
   };
 };
 

@@ -8,3 +8,4 @@ save.txt
 .venv/
 __pycache__/
 *.py[cod]
+.kilo/
