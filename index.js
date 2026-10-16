@@ -14,6 +14,7 @@ import animexProxyRouter from "./src/animex/router/proxy.js";
 import reanimeListingsRouter from "./src/reanime/router/listings.js";
 import reanimeEpisodeServersRouter from "./src/reanime/router/episode-servers.js";
 import reanimeEpisodeSourcesRouter from "./src/reanime/router/streaming-server.js";
+import reanimeProxyRouter from "./src/reanime/router/proxy.js";
 import hianimeListingsRouter from "./src/hianime/router/listings.js";
 import hianimeEpisodeServersRouter from "./src/hianime/router/episode-servers.js";
 import hianimeEpisodeSourcesRouter from "./src/hianime/router/streaming-server.js";
@@ -21,7 +22,6 @@ import hianimeProxyRouter from "./src/hianime/router/proxy.js";
 import scraplingRouter from "./src/scrapling/router/index.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
-import { createReanimePlayPage } from "./src/ui/reanime-play-page.js";
 
 const app = new Hono();
 
@@ -61,6 +61,7 @@ app.route("/api/v2/animex/proxy", animexProxyRouter);
 app.route("/api/v2/reanime", reanimeListingsRouter);
 app.route("/api/v2/reanime/episode", reanimeEpisodeServersRouter);
 app.route("/api/v2/reanime/episode/sources", reanimeEpisodeSourcesRouter);
+app.route("/api/v2/reanime/proxy", reanimeProxyRouter);
 
 app.route("/api/v2/scrapling", scraplingRouter);
 
@@ -71,9 +72,9 @@ app.route("/api/v2/anikoto/play", createPlayPage("/api/v2/anikoto/episode/source
 
 app.route("/api/v2/animex/play", createPlayPage("/api/v2/animex/episode/sources"));
 
-// reanime streams are browser-only (IP/token-locked, client-decrypted), so its
-// play page frames the flixcloud embed instead of an HLS player.
-app.route("/api/v2/reanime/play", createReanimePlayPage("/api/v2/reanime/episode/sources"));
+// reanime streams are resolved server-side (WASM de-obfuscation + XOR-decrypted
+// playlist) and served through /proxy, so it uses the same HLS player page.
+app.route("/api/v2/reanime/play", createPlayPage("/api/v2/reanime/episode/sources"));
 
 
 app.notFound((c) => {

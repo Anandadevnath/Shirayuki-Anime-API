@@ -1,14 +1,15 @@
 import { REANIME_BASE_URL, flixGet, normalizeCategory } from '../_shared.js';
 import { fetchReanimeAnime } from './anime.js';
+import { resolveFlixcloud } from './flixcloud.js';
 
-// Shape the sources response like the hianime provider (link/tracks/intro/outro/
-// sources[]) so clients can consume reanime with the same code. IMPORTANT: unlike
-// hianime, reanime's streams CANNOT be proxied or fetched server-side — the flix
-// resolver returns flixcloud embed pages whose real HLS URL is minted with a JWT
-// bound to the requesting browser's IP (a plain server fetch returns 403) and the
-// playlist bodies are decrypted client-side. So `link`/`sources[].url` are the
-// embed page (browser-only), `proxyM3u8` points at our iframe player page (which
-// frames that embed), and `streamResolved` reflects that no direct m3u8 exists.
+// Shape the sources response exactly like the hianime provider
+// (source/episodeId/server/category/embed/streamResolved/reason/note/link/tracks/
+// intro/outro/referer/sources[]) so clients consume reanime with the same code.
+//
+// Unlike the raw flixcloud embed (browser-only), we replay the player's own
+// resolution server-side — WASM key-mix + AES-CBC for the URL blob, then the
+// patched-hls.js XOR key for the playlist body — which yields a real .m3u8 that
+// our /proxy can serve. So reanime now has the same proxied-HLS shape as hianime.
 export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, origin } = {}) => {
   const { details, anilistId, malId } = await fetchReanimeAnime(animeId);
 
@@ -41,56 +42,111 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
   const pool = matches.length ? matches : all;
 
   const wanted = String(server || '').trim().toLowerCase();
-  const chosen = wanted ? pool.find((s) => String(s.name).toLowerCase() === wanted) || pool[0] : pool[0];
+  const isMatch = (s) => String(s.name).toLowerCase().replace(/-/g, '') === wanted.replace(/-/g, '');
+  const ordered = wanted ? [...pool.filter(isMatch), ...pool.filter((s) => !isMatch(s))] : pool;
 
-  const embedUrl = chosen?.embedUrl || null;
-  const referer = embedUrl ? `${new URL(embedUrl).origin}/` : null;
-
-  // Our iframe player page (frames the embed) — the closest analogue to hianime's
-  // proxied play page, since the raw playlist cannot be proxied here.
-  const base = origin || '';
-  const playParams = new URLSearchParams({ animeId: details.animeId, ep: String(episodeNumber) });
-  if (chosen?.name) playParams.set('server', chosen.name);
-  if (chosen?.category) playParams.set('category', chosen.category);
-  const proxyM3u8 = base ? `${base}/api/v2/reanime/play?${playParams.toString()}` : null;
-
-  const sources = embedUrl
-    ? [
-        {
-          // No direct m3u8 exists; the embed page is the playable resource.
-          url: embedUrl,
-          type: 'embed',
-          quality: 'auto',
-          server: chosen.name,
-          category: chosen.category,
-          browserOnly: true,
-          proxyM3u8,
-          embeddedUrl: embedUrl,
-        },
-      ]
-    : [];
-
-  return {
+  const base = {
     source: `${REANIME_BASE_URL}/api/flix/${anilistId}/${episodeNumber}${malId ? `?mal=${malId}` : ''}`,
-    episodeId: chosen?.id || null,
+    episodeId: null,
     animeId: details.animeId,
     anilistId,
     malId,
     episode: episodeNumber,
-    server: chosen?.name || null,
-    category: chosen?.category || wantCategory,
-    embed: embedUrl,
-    streamResolved: Boolean(embedUrl),
-    reason: embedUrl
-      ? null
-      : 'No server embed resolved for this episode',
-    note: 'reanime streams are token+IP locked and decrypted client-side; play the embed URL in a browser. Not proxyable server-side.',
-    link: embedUrl,
+    server: null,
+    category: wantCategory,
+    embed: null,
+    streamResolved: false,
+    reason: null,
+    note: null,
+    link: null,
     tracks: [],
     intro: null,
     outro: null,
-    referer,
+    referer: null,
     servers: all,
-    sources,
+    sources: [],
+  };
+
+  if (!ordered.length) {
+    return { ...base, reason: 'resolution-failed', note: 'No usable server selected' };
+  }
+
+  const proxyBase = origin ? `${origin}/api/v2/reanime/proxy` : '/api/v2/reanime/proxy';
+  let lastError = null;
+
+  // Try servers in order (requested first) so one dead server doesn't block playback.
+  for (const candidate of ordered) {
+    const embedUrl = candidate.embedUrl;
+    if (!embedUrl) {
+      lastError = new Error('server has no embed url');
+      continue;
+    }
+    try {
+      const { url: link, playlistKey } = await resolveFlixcloud(embedUrl);
+      const referer = 'https://flixcloud.cc/';
+      const keyB64 = playlistKey.toString('base64');
+
+      const proxyM3u8 = `${proxyBase}?url=${encodeURIComponent(link)}&ref=${encodeURIComponent(referer)}&key=${encodeURIComponent(keyB64)}`;
+
+      return {
+        ...base,
+        episodeId: candidate.id,
+        server: candidate.name,
+        category: candidate.category || wantCategory,
+        embed: embedUrl,
+        streamResolved: true,
+        link,
+        tracks: [],
+        referer,
+        sources: [
+          {
+            url: link,
+            type: 'm3u8',
+            quality: 'auto',
+            server: candidate.name,
+            category: candidate.category || wantCategory,
+            proxyM3u8,
+            embeddedUrl: proxyM3u8,
+          },
+        ],
+      };
+    } catch (error) {
+      lastError = error;
+      // keep trying the next server
+    }
+  }
+
+  // Every server failed to resolve — degrade to the embed so the client still has
+  // something playable (browser-only), mirroring hianime's degrade behaviour.
+  const fallback = ordered[0];
+  const fallbackEmbed = fallback?.embedUrl || null;
+  const fallbackParams = new URLSearchParams({ animeId: details.animeId, ep: String(episodeNumber) });
+  if (fallback?.name) fallbackParams.set('server', fallback.name);
+  if (fallback?.category) fallbackParams.set('category', fallback.category);
+  const fallbackPlay = origin ? `${origin}/api/v2/reanime/play?${fallbackParams.toString()}` : null;
+
+  return {
+    ...base,
+    episodeId: fallback?.id || null,
+    server: fallback?.name || null,
+    category: fallback?.category || wantCategory,
+    embed: fallbackEmbed,
+    reason: 'resolution-failed',
+    note: lastError?.message || 'all servers failed to resolve',
+    referer: fallbackEmbed ? `${new URL(fallbackEmbed).origin}/` : null,
+    sources: fallbackEmbed
+      ? [
+          {
+            url: fallbackEmbed,
+            type: 'embed',
+            quality: 'auto',
+            server: fallback.name,
+            category: fallback.category || wantCategory,
+            browserOnly: true,
+            proxyM3u8: fallbackPlay,
+            embeddedUrl: fallbackEmbed,
+          },
+        ]
+      : [],
   };
 };

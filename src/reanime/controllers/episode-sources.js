@@ -1,8 +1,8 @@
 import { getReanimeEpisodeSources } from '../scraper/episode-sources.js';
 import { getRequestOrigin } from '../../utils/request-origin.js';
 
-// Sources are browser-only and carry no server-side-playable m3u8; a short
-// cache still avoids repeated upstream hits for the same request.
+// Sources resolve a real server-side m3u8 per (server, ep); a short cache avoids
+// repeated upstream flixcloud hits for the same request.
 const cache = new Map();
 const CACHE_TTL_MS = 60 * 1000;
 

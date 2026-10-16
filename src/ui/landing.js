@@ -186,8 +186,9 @@ export const API_CATALOG = {
           title: 'Streaming',
           items: [
             { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=go-lion-4q2k84&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links.' },
-            { label: 'Episode sources', path: '/api/v2/reanime/episode/sources?animeId=go-lion-4q2k84&ep=1', desc: 'hianime-shaped response: link/tracks/sources. Playback is browser-only (embed URL + proxyM3u8 play page); reanime streams are token+IP locked and client-decrypted, so no server-side m3u8.' },
-            { label: 'Player page', path: '/api/v2/reanime/play?animeId=go-lion-4q2k84&ep=1', desc: 'Built-in browser player: frames the flixcloud embed (the only way to play reanime streams).' },
+            { label: 'Episode sources', path: '/api/v2/reanime/episode/sources?animeId=go-lion-4q2k84&ep=1', desc: 'hianime-shaped response with a real server-resolved m3u8 (WASM de-obfuscation + XOR-decrypted playlist) and a proxied proxyM3u8.' },
+            { label: 'Proxy', path: '/api/v2/reanime/proxy?url=...', desc: 'HLS proxy: decrypts flixcloud playlists and rewrites children; plays through hls.js.' },
+            { label: 'Player page', path: '/api/v2/reanime/play?animeId=go-lion-4q2k84&ep=1', desc: 'Built-in HLS player that plays the reanime proxyM3u8 through hls.js.' },
           ],
         },
       ],
