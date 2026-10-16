@@ -7,6 +7,10 @@ export const hianimeProxyController = async (c) => {
     const url = c.req.query('url');
     const ref = c.req.query('ref');
 
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return c.json({ success: false, error: 'A valid http(s) url query parameter is required' }, 400);
+    }
+
     const result = await proxyStream({ url, referer: ref, basePath: PROXY_BASE_PATH });
 
     c.header('Content-Type', result.contentType);
