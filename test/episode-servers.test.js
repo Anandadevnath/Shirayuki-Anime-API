@@ -42,7 +42,7 @@ test('builds sanitized nyaa queries and detects target season', () => {
     synonyms: ['葬送のフリーレン'],
   };
   const qs = buildQueries(media, 5);
-  assert.deepEqual(qs, ['Sousou no Frieren 2nd Season 05', 'Frieren Beyond Journeys End Season 2 05', 'Sousou no Frieren']);
+  assert.deepEqual(qs, ['Sousou no Frieren 2nd Season 05', 'Frieren Beyond Journeys End Season 2 05', 'Sousou no Frieren', 'Sousou no Frieren batch']);
   qs.forEach((q) => assert.doesNotMatch(q, /[-|"]/));
   assert.equal(targetSeasonOf(media), 2);
 });

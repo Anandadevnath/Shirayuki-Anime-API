@@ -88,8 +88,9 @@ export const buildQueries = (media, ep) => {
   const variants = titleVariants(media);
   const base = sanitizeQuery(stripSeason(media.title?.romaji || media.title?.english || ''));
   const episodeQueries = variants.slice(0, MAX_TITLE_VARIANTS).map((v) => `${v} ${padEpisode(ep)}`);
-  // Seeder-sorted base search surfaces batches/season packs that contain the episode.
-  return [...new Set([...episodeQueries, base].filter(Boolean))];
+  // Seeder-sorted base search surfaces season packs; long-running shows (One Piece) bury their
+  // batches under weekly episodes, so search for batches explicitly too.
+  return [...new Set([...episodeQueries, base, base && `${base} batch`].filter(Boolean))];
 };
 
 // ---------- ranking ----------

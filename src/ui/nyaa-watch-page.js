@@ -100,13 +100,16 @@ const syncUrl = () => {
 
 // Remote worker: ask the API for signed worker URLs for this release and play them inline.
 let hls = null;
+let playRun = 0;
+const MAX_RETRIES = 3;
 const stopStream = () => {
   if (hls) { hls.destroy(); hls = null; }
   const video = $('video');
   video.removeAttribute('src');
   video.querySelectorAll('track').forEach((t) => t.remove());
 };
-const playInline = async (server) => {
+const playInline = async (server, attempt = 0) => {
+  const run = ++playRun;
   stopStream();
   const video = $('video');
   video.hidden = !server;
@@ -139,7 +142,16 @@ const playInline = async (server) => {
       const statusUrl = data.sources[0].url.replace('/stream/', '/status/').replace('/index.m3u8', '');
       hls.on(Hls.Events.MEDIA_ATTACHED, (e, d) => { mediaSource = d.mediaSource || null; });
       hls.on(Hls.Events.FRAG_BUFFERED, applyDuration);
-      hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) status('Playback error: ' + d.details, true); });
+      hls.on(Hls.Events.ERROR, (e, d) => {
+        if (!d.fatal) return;
+        // Cold torrents (big batches, few peers) or a worker restart can fail the first playlist load: start over.
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR && attempt < MAX_RETRIES) {
+          status('Worker still preparing… retrying (' + (attempt + 1) + '/' + MAX_RETRIES + ')');
+          setTimeout(() => { if (run === playRun) playInline(server, attempt + 1); }, 3000);
+          return;
+        }
+        status('Playback error: ' + d.details + ' (try another server)', true);
+      });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.play().catch(() => {});
         fetch(statusUrl).then((r) => r.json()).then((j) => { fullDuration = Number(j.data?.hls?.duration) || 0; applyDuration(); }).catch(() => {});
@@ -159,7 +171,7 @@ const playInline = async (server) => {
 
 // Point the watch button at this release on webtor.io (only plain webtor URLs from the API).
 const play = (server) => {
-  if (INITIAL.inline) { $('ptitle').textContent = server ? server.title : ''; if (server) syncUrl(); playInline(server); return; }
+  if (INITIAL.inline) { $('note').hidden = true; $('ptitle').textContent = server ? server.title : ''; if (server) syncUrl(); playInline(server); return; }
   const link = $('watch');
   const url = String(server?.webtorUrl || '');
   link.hidden = !url.startsWith(WEBTOR_PREFIX);
