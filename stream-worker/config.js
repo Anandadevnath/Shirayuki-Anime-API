@@ -7,7 +7,8 @@ const cacheRoot = env.STREAM_CACHE_DIR || path.join(os.tmpdir(), 'shirayuki-stre
 
 // Frozen once at boot; resolveStreamSecret throws in production without STREAM_SECRET.
 const config = Object.freeze({
-  port: env.STREAM_PORT,
+  // Embedded in the API, ffmpeg's internal /raw reads must hit the API's own port.
+  port: env.STREAM_EMBED ? env.PORT : env.STREAM_PORT,
   secret: resolveStreamSecret(env.STREAM_SECRET, env.NODE_ENV),
   tokenTtlSec: env.STREAM_TOKEN_TTL_SEC,
   torrentDir: path.join(cacheRoot, 'torrents'),
