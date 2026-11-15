@@ -72,6 +72,38 @@ const rewritePlaylist = (body, playlistUrl, referer, basePath, key = '') => {
     .join('\n');
 };
 
+// Flixcloud wraps some servers' TS segments in a fake WebP/PNG container. This
+// mirrors the patched hls.js: if the RIFF/WEBP (or PNG) magic is present, drop the
+// header; then, unless the payload already starts with a TS sync byte (0x47), XOR
+// it with the fixed 16-byte key. Non-image payloads (e.g. AES-128 ciphertext) are
+// returned unchanged.
+const IMAGE_XOR_KEY = Buffer.from([
+  157, 42, 241, 71, 179, 142, 92, 112, 166, 25, 228, 59, 216, 98, 15, 197,
+]);
+const WEBP_MAGIC = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x57, 0x45, 0x42, 0x50]);
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+const unwrapImageSegment = (buf) => {
+  let payload = null;
+
+  if (buf.length >= 12 && buf.subarray(0, 4).equals(WEBP_MAGIC.subarray(0, 4)) && buf.subarray(8, 12).equals(WEBP_MAGIC.subarray(4, 8))) {
+    payload = buf.subarray(12);
+  } else if (buf.length >= 8 && buf.subarray(0, 8).equals(PNG_MAGIC)) {
+    payload = buf.subarray(8);
+  } else {
+    return buf;
+  }
+
+  // Already a TS stream once the image header is removed — just strip it.
+  if (payload.length > 0 && payload[0] === 0x47) {
+    return Buffer.from(payload);
+  }
+
+  const out = Buffer.allocUnsafe(payload.length);
+  for (let i = 0; i < payload.length; i++) out[i] = payload[i] ^ IMAGE_XOR_KEY[15 & i];
+  return out;
+};
+
 // Proxy one flixcloud resource. Playlist bodies are base64 + XOR-obfuscated; pass
 // `playlistKey` (the 32-byte WASM key as base64) to decrypt them before rewriting.
 // Either way the rewritten playlist routes children back through this proxy; a
@@ -135,11 +167,14 @@ export const proxyStream = async ({ url, referer, basePath, playlistKey }) => {
   }
 
   // Everything reaching here that is not a playlist is a media segment. Flixcloud
-  // masks TS segments as images (.webp/.png) and serves a fake image content-type;
-  // when the stream is AES-128 keyed the segments are ciphertext. The browser's MSE
-  // rejects a non-video content-type, so always serve a video type here.
+  // masks some servers' TS segments as images (.webp/.png) and serves them with a
+  // fake image content-type. Replay the patched hls.js unwrap: strip the WebP
+  // (12-byte) or PNG (8-byte) header, and if the payload is not already TS (first
+  // byte 0x47) XOR it with the fixed 16-byte key. AES-128-keyed segments (HD-1) are
+  // not image-wrapped, so they pass through untouched and hls.js decrypts them.
+  const unwrapped = unwrapImageSegment(raw);
   const contentType = upstream.headers['content-type'] || '';
   const contentTypeOut = /^video\//i.test(contentType) ? contentType : 'video/mp2t';
 
-  return { kind: 'binary', body: raw, contentType: contentTypeOut };
+  return { kind: 'binary', body: unwrapped, contentType: contentTypeOut };
 };

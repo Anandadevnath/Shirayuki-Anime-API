@@ -100,6 +100,41 @@ npm run start
 | `GET` | `/api/v2/hianime/proxy?url=&ref=` | HLS playlist proxy |
 | `GET` | `/api/v2/hianime/play?animeEpisodeId=&ep=&server=&category=` | Built-in browser player page |
 
+### Nyaa (AniList + nyaa.si torrents)
+
+> Metadata from the official **AniList GraphQL API**, sources from the **nyaa.si RSS feed**. Torrents are turned into a playable **HLS `.m3u8`** by a separate long-running **stream worker** (`npm run stream`: webtorrent + ffmpeg). Because the catalog doesn't depend on a pirate streaming site, it survives site shutdowns. Nyaa mirrors are a config change (`NYAA_BASE_URLS`).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v2/nyaa` | Home: spotlight, trending, seasonal, top-airing, upcoming, top-rated, latest Nyaa releases |
+| `GET` | `/api/v2/nyaa/schedule?date=YYYY-MM-DD` | Airing schedule (AniList) |
+| `GET` | `/api/v2/nyaa/browse/:category?page=1` | `trending`, `most-popular`, `top-rated`, `top-airing`, `upcoming`, `completed`, `tv`, `movie`, `ova`, `ona`, `special`, ... |
+| `GET` | `/api/v2/nyaa/genre/:genre?page=1` | Titles by genre |
+| `GET` | `/api/v2/nyaa/search?q=&page=1` | Keyword search |
+| `GET` | `/api/v2/nyaa/search/suggestion?q=` | Autocomplete |
+| `GET` | `/api/v2/nyaa/anime/:animeId` | Details (`animeId` = `slug-<anilistId>`, e.g. `sousou-no-frieren-154587`) |
+| `GET` | `/api/v2/nyaa/anime/:animeId/episodes` | Aired episodes (`episodeId` = `<anilistId>-ep-<n>`) |
+| `GET` | `/api/v2/nyaa/torrents?q=&c=1_2&f=0&s=seeders&page=1` | Raw Nyaa search |
+| `GET` | `/api/v2/nyaa/episode/servers?animeEpisodeId=&ep=1` | Ranked torrents for the episode (sub / dual-audio) |
+| `GET` | `/api/v2/nyaa/episode/sources?animeEpisodeId=&ep=&server=<infoHash>&category=sub` | `server`, **`sources[0].url`** (m3u8), `sources[0].proxyM3u8` (same stream via `/api/v2/nyaa/proxy`), `tracks` (WebVTT), `worker`, `alternatives` |
+| `GET` | `/api/v2/nyaa/play?animeEpisodeId=&ep=` | Built-in browser player page |
+
+**Stream worker** (separate process; *not* deployable on Vercel):
+
+```bash
+npm run stream      # http://localhost:4100. Needs ffmpeg + ffprobe on PATH
+```
+
+| Worker route | Purpose |
+|---|---|
+| `GET /stream/:hash/:sel/index.m3u8?t=` | HLS playlist (H.264 copied, HEVC/10-bit transcoded) |
+| `GET /stream/:hash/:sel/subs.vtt?t=` | First English text subtitle track as WebVTT |
+| `GET /raw/:hash/:sel?t=` | Original file with HTTP Range (VLC/mpv seek anywhere) |
+| `GET /status/:hash/:sel?t=` | Peers, speed, progress, segment count |
+| `POST /prepare/:hash/:sel?t=` | Start fetching early (the API calls this for you) |
+
+All worker URLs are HMAC-signed by the API (`STREAM_SECRET`, shared by both processes), so the worker can't be used as an open torrent proxy. The first play takes ~5–30 s depending on seeders. Browser seeking only reaches segments that already exist. The worker joins the BitTorrent swarm and uploads (capped by `STREAM_UPLOAD_LIMIT`), so host it somewhere you are comfortable with that.
+
 ### Scrapling (Python bridge)
 
 > Fetch and parse pages with [Scrapling](https://github.com/D4Vinci/Scrapling). The
@@ -194,9 +229,27 @@ curl "http://localhost:3000/api/v2/scrapling/fetch?url=https%3A%2F%2Fexample.com
 Create a `.env` file in the project root:
 
 ```env
-PORT=3000                    # Server port (default: 3000)
+PORT=4000                    # Server port (default: 4000)
 NODE_ENV=development         # Environment: development/production/test
+
+# --- nyaa provider ---
+NYAA_BASE_URLS=https://nyaa.si             # comma-separated failover list
+NYAA_PREFERRED_GROUPS=SubsPlease,Erai-raws,EMBER,ASW,Judas
+STREAM_ORIGIN=http://localhost:4100        # public URL of the stream worker
+STREAM_SECRET=change-me-long-random        # REQUIRED in production, same value on API + worker
+STREAM_TOKEN_TTL_SEC=21600
+
+# --- stream worker (npm run stream) ---
+STREAM_PORT=4100
+STREAM_CACHE_DIR=                          # default: <os tmp>/shirayuki-stream
+STREAM_IDLE_MS=600000                      # close torrent + delete files after 10 min idle
+STREAM_MAX_SESSIONS=3
+STREAM_UPLOAD_LIMIT=51200                  # bytes/sec, -1 = unlimited
+STREAM_READY_TIMEOUT_MS=50000
+STREAM_TRANSCODE=auto                      # auto | always | never
 ```
+
+**Split deploy:** the API (catalog + `/episode/sources`) can stay on Vercel. Run `npm run stream` on a VPS, Railway or Fly (see `Dockerfile.stream`), or on your PC behind a Cloudflare Tunnel. Then set `STREAM_ORIGIN` on Vercel to that public URL, and use the same `STREAM_SECRET` on both.
 
 ---
 

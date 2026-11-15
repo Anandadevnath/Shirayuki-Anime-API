@@ -1,0 +1,20 @@
+# Render blueprint for the nyaa stream worker (torrent -> HLS). Render dashboard:
+# New > Blueprint > this repo. Set STREAM_SECRET to the same value as the API.
+# Free plan: 512 MB RAM, 0.1 CPU, sleeps after 15 min without requests, ephemeral disk.
+services:
+  - type: web
+    name: shirayuki-stream
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.stream
+    healthCheckPath: /health
+    envVars:
+      - key: STREAM_SECRET
+        sync: false
+      - key: STREAM_PORT
+        value: "4100"
+      - key: PORT
+        value: "4100"
+      # 0.1 CPU can only copy H.264; one torrent at a time keeps RAM under 512 MB.
+      - key: STREAM_MAX_SESSIONS
+        value: "1"

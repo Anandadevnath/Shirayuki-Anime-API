@@ -193,6 +193,41 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'nyaa',
+      name: 'Nyaa',
+      accent: '#38bdf8',
+      source: 'AniList GraphQL + nyaa.si RSS + torrent→HLS stream worker',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/nyaa', desc: 'AniList spotlight, trending, seasonal, top-airing, upcoming, top-rated + latest trusted Nyaa releases.' },
+            { label: 'Schedule', path: '/api/v2/nyaa/schedule', desc: 'AniList airing schedule for a day (?date=YYYY-MM-DD, UTC).' },
+            { label: 'Browse', path: '/api/v2/nyaa/browse/top-airing?page=1', desc: 'trending, most-popular, top-rated, top-airing, upcoming, completed, tv, movie, ova, ona, special...' },
+            { label: 'Genre', path: '/api/v2/nyaa/genre/action?page=1', desc: 'Titles by AniList genre.' },
+            { label: 'Anime details', path: '/api/v2/nyaa/anime/sousou-no-frieren-154587', desc: 'Synopsis, genres, studios, relations & recommendations (id = slug-anilistId).' },
+            { label: 'Episodes', path: '/api/v2/nyaa/anime/sousou-no-frieren-154587/episodes', desc: 'Aired episodes with episodeId = <anilistId>-ep-<n>.' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/nyaa/search?q=frieren&page=1', desc: 'AniList keyword search.' },
+            { label: 'Suggestions', path: '/api/v2/nyaa/search/suggestion?q=frieren', desc: 'Autocomplete suggestions.' },
+            { label: 'Torrents', path: '/api/v2/nyaa/torrents?q=frieren&f=2', desc: 'Raw Nyaa search (c=category, f=0/1/2 filter, s=sort, page).' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode servers', path: '/api/v2/nyaa/episode/servers?animeEpisodeId=sousou-no-frieren-154587&ep=1', desc: 'Ranked torrents for the episode (trusted, seeders, group, 1080p, H.264); batches included.' },
+            { label: 'Episode sources', path: '/api/v2/nyaa/episode/sources?animeEpisodeId=sousou-no-frieren-154587&ep=1', desc: 'sources[0].url = signed m3u8 on the stream worker, WebVTT subtitle track, alternative releases.' },
+            { label: 'Watch page', path: '/api/v2/nyaa/watch?animeEpisodeId=sousou-no-frieren-154587&ep=1', desc: 'Paste an anime id/URL, pick episode, sub/dub and release; then opens it on webtor.io (cloud torrent player, nothing downloads locally).' },
+          ],
+        },
+      ],
+    },
   ],
 };
 

@@ -182,18 +182,3 @@ export const resolveFlixcloud = async (embedUrl) => {
   return { url: m3u8Url, playlistKey };
 };
 
-// Fetch the resolved playlist and return its decrypted master text.
-export const fetchDecryptedPlaylist = async (m3u8Url, playlistKey, referer = 'https://flixcloud.cc/') => {
-  const { data } = await axios.get(m3u8Url, {
-    proxy: false,
-    timeout: 30000,
-    responseType: 'arraybuffer',
-    maxRedirects: 5,
-    headers: {
-      'User-Agent': DEFAULT_UA,
-      Accept: '*/*',
-      Referer: referer,
-    },
-  });
-  return decryptPlaylistBody(Buffer.from(data).toString('utf8'), playlistKey);
-};

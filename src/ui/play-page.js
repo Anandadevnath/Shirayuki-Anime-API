@@ -59,7 +59,35 @@ async function play(){
     const r=await fetch(api);
     const j=await r.json();
     if(!j.success){throw new Error(j.error||'bad response');}
+    // nyaa only: stream is served by a separate worker process; fail loudly if it is down.
+    if(j.data.worker&&j.data.worker.reachable===false){throw new Error('stream worker unreachable ('+j.data.worker.error+') - start it with "npm run stream"');}
     const src=j.data.sources[0];
+    // Attach WebVTT captions when the provider returns them (nyaa does).
+    // Tracks live on another origin (the nyaa stream worker), so CORS mode is required.
+    video.crossOrigin='anonymous';
+    video.querySelectorAll('track').forEach(t=>t.remove());
+    clearInterval(window.__subsTimer);
+    const vtts=(j.data.tracks||[]).filter(t=>t.file&&/\\.vtt(\\?|$)/.test(t.file));
+    const addTracks=()=>{
+      video.querySelectorAll('track').forEach(t=>t.remove());
+      vtts.forEach((t,i)=>{
+        const el=document.createElement('track');
+        el.kind='captions';el.label=t.label||'Subtitles';el.src=t.file+(t.file.includes('?')?'&':'?')+'_='+Date.now();el.default=i===0;
+        video.appendChild(el);
+        if(i===0) el.addEventListener('load',()=>{el.track.mode='showing';});
+      });
+    };
+    addTracks();
+    // The worker writes subs.vtt progressively; reload it until transcoding finishes.
+    if(vtts.length&&j.data.statusUrl){
+      window.__subsTimer=setInterval(async()=>{
+        try{
+          const st=(await (await fetch(j.data.statusUrl)).json()).data||{};
+          addTracks();
+          if(!st.hls||st.hls.state!=='running'){clearInterval(window.__subsTimer);}
+        }catch(e){clearInterval(window.__subsTimer);}
+      },30000);
+    }
     // Prefer a ready-made embeddedUrl; otherwise proxy the raw url ourselves.
     const proxyBase = api.split('/episode/sources')[0] + '/proxy';
     const proxy = src.embeddedUrl
@@ -69,13 +97,25 @@ async function play(){
     log('proxy='+proxy);
     if(window.Hls && Hls.isSupported()){
       if(window.__hls) window.__hls.destroy();
-      const hls=new Hls();
+      // Torrent-backed streams (nyaa) can take a while to produce the first segments.
+      const hls=new Hls({manifestLoadingTimeOut:60000,manifestLoadingMaxRetry:4,levelLoadingTimeOut:60000,fragLoadingTimeOut:60000});
       window.__hls=hls;
       hls.on(Hls.Events.ERROR,(e,d)=>{log((d.fatal?'FATAL ':'err ')+d.type+' -> '+(d.details||''));});
       hls.on(Hls.Events.MANIFEST_PARSED,()=>{log('MANIFEST PARSED — playing');video.play().catch(()=>{});});
       hls.loadSource(proxy);
-      hls.attachMedia(video);
-      log('hls.js attached (MSE)');
+      if(j.data.statusUrl){
+        // nyaa playlists grow while the worker transcodes; once the manifest exists the worker
+        // has probed the file, so pass its full length to hls.js instead of the partial one.
+        hls.once(Hls.Events.MANIFEST_LOADED,async()=>{
+          let full=null;
+          try{const st=(await (await fetch(j.data.statusUrl)).json()).data||{};full=st.hls&&st.hls.duration>0?st.hls.duration:null;}catch(e){log('status fetch failed: '+e.message);}
+          hls.attachMedia(full?{media:video,overrides:{duration:full}}:video);
+          log('hls.js attached (MSE)'+(full?' full duration '+Math.round(full)+'s':''));
+        });
+      } else {
+        hls.attachMedia(video);
+        log('hls.js attached (MSE)');
+      }
     } else if(video.canPlayType('application/vnd.apple.mpegurl')){
       video.src=proxy; log('native HLS (Safari)');
     } else {
@@ -90,14 +130,23 @@ play();
 </body>
 </html>`;
 
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 export const createPlayPage = (apiPath) => {
   const router = new Hono();
   const full = apiPath.replace(/\/+$/, '');
   router.get('/', (c) => {
-    const animeEpisodeId = c.req.query('animeEpisodeId') || c.req.query('animeId') || 'naruto-eybxz';
-    const ep = c.req.query('ep') || '1';
-    const server = c.req.query('server') || 'hd-1';
-    const category = c.req.query('category') || 'sub';
+    // Every query value is reflected into HTML attributes, so escape it (reflected XSS).
+    const animeEpisodeId = escapeHtml(c.req.query('animeEpisodeId') || c.req.query('animeId') || 'naruto-eybxz');
+    const ep = escapeHtml(c.req.query('ep') || '1');
+    const server = escapeHtml(c.req.query('server') || 'hd-1');
+    const category = c.req.query('category') === 'dub' ? 'dub' : 'sub';
     c.header('Cache-Control', 'no-store');
     return c.html(PLAY_PAGE({ apiPath: full, animeEpisodeId, ep, server, category }));
   });

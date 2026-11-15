@@ -68,21 +68,6 @@ export const infoApiGet = async (path) => {
   return data;
 };
 
-// GET against the pp.animex.one player REST api.
-export const ppGet = async (path) => {
-  const { data } = await axios.get(`${ANIMEX_PP_BASE_URL}${path}`, {
-    proxy: false,
-    timeout: 20000,
-    headers: {
-      'User-Agent': DEFAULT_UA,
-      Accept: 'application/json, */*',
-      Origin: ANIMEX_BASE_URL,
-      Referer: CDN_REFERER,
-    },
-  });
-  return data;
-};
-
 // SvelteKit encodes page payloads with devalue's "index format": a flat array
 // where objects are arrays whose first element is the key list and the rest are
 // indexes into the flat array. This decoder restores the object graph.
@@ -149,20 +134,6 @@ export const decodeSvelteKitData = (rawData) => {
   return obj;
 };
 
-// Fetch + decode the SvelteKit payload for an animex.one page path.
-// Returns { pageData, error } where pageData holds the load function output
-// (e.g. { animeInfo, anilistId }).
-export const fetchAnimexPageData = async (path) => {
-  const url = `${ANIMEX_BASE_URL}${path}${path.includes('?') ? '&' : '?'}__data.json`;
-  const { data } = await axios.get(url, {
-    proxy: false,
-    timeout: 25000,
-    maxRedirects: 5,
-    headers: pageHeaders(),
-  });
-  return data;
-};
-
 // Normalize the anime id: accepts full URLs, /anime/ or /watch/ paths, or the
 // bare id (e.g. "naruto-20"). Returns the path segment used on animex.one.
 export const normalizeAnimeId = (raw) => {
@@ -196,8 +167,6 @@ export const kebabize = (title) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-
-export const buildDetailUrl = (animeId) => `${ANIMEX_BASE_URL}/anime/${encodeURIComponent(animeId)}`;
 
 export const buildWatchUrl = (animeId, episode) =>
   `${ANIMEX_BASE_URL}/watch/${encodeURIComponent(animeId)}${episode ? `-episode-${episode}` : ''}`;
