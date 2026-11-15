@@ -1,7 +1,6 @@
-# Render blueprint: API + nyaa stream worker in one free web service.
-# Dashboard: New > Blueprint > this repo. Then set STREAM_SECRET (any random string)
-# and STREAM_ORIGIN (this service's URL, e.g. https://<name>.onrender.com).
-# Free plan: 512 MB RAM, 0.1 CPU, sleeps after 15 min without requests, ephemeral disk.
+# Render blueprint: the API as one free web service.
+# Dashboard: New > Blueprint > this repo.
+# Free plan: 512 MB RAM, 0.1 CPU, sleeps after 15 min without requests.
 services:
   - type: web
     name: shirayuki-anime-api
@@ -9,11 +8,3 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
-    envVars:
-      - key: STREAM_SECRET
-        sync: false
-      - key: STREAM_ORIGIN
-        sync: false
-      # 0.1 CPU can only copy H.264; one torrent at a time keeps RAM under 512 MB.
-      - key: STREAM_MAX_SESSIONS
-        value: "1"

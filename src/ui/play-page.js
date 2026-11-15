@@ -59,14 +59,10 @@ async function play(){
     const r=await fetch(api);
     const j=await r.json();
     if(!j.success){throw new Error(j.error||'bad response');}
-    // nyaa only: stream is served by a separate worker process; fail loudly if it is down.
-    if(j.data.worker&&j.data.worker.reachable===false){throw new Error('stream worker unreachable ('+j.data.worker.error+') - start it with "npm run stream"');}
     const src=j.data.sources[0];
-    // Attach WebVTT captions when the provider returns them (nyaa does).
-    // Tracks live on another origin (the nyaa stream worker), so CORS mode is required.
+    // Attach WebVTT captions when the provider returns them; they may live on another origin.
     video.crossOrigin='anonymous';
     video.querySelectorAll('track').forEach(t=>t.remove());
-    clearInterval(window.__subsTimer);
     const vtts=(j.data.tracks||[]).filter(t=>t.file&&/\\.vtt(\\?|$)/.test(t.file));
     const addTracks=()=>{
       video.querySelectorAll('track').forEach(t=>t.remove());
@@ -78,16 +74,6 @@ async function play(){
       });
     };
     addTracks();
-    // The worker writes subs.vtt progressively; reload it until transcoding finishes.
-    if(vtts.length&&j.data.statusUrl){
-      window.__subsTimer=setInterval(async()=>{
-        try{
-          const st=(await (await fetch(j.data.statusUrl)).json()).data||{};
-          addTracks();
-          if(!st.hls||st.hls.state!=='running'){clearInterval(window.__subsTimer);}
-        }catch(e){clearInterval(window.__subsTimer);}
-      },30000);
-    }
     // Prefer a ready-made embeddedUrl; otherwise proxy the raw url ourselves.
     const proxyBase = api.split('/episode/sources')[0] + '/proxy';
     const proxy = src.embeddedUrl
@@ -97,25 +83,13 @@ async function play(){
     log('proxy='+proxy);
     if(window.Hls && Hls.isSupported()){
       if(window.__hls) window.__hls.destroy();
-      // Torrent-backed streams (nyaa) can take a while to produce the first segments.
-      const hls=new Hls({manifestLoadingTimeOut:60000,manifestLoadingMaxRetry:4,levelLoadingTimeOut:60000,fragLoadingTimeOut:60000});
+      const hls=new Hls();
       window.__hls=hls;
       hls.on(Hls.Events.ERROR,(e,d)=>{log((d.fatal?'FATAL ':'err ')+d.type+' -> '+(d.details||''));});
       hls.on(Hls.Events.MANIFEST_PARSED,()=>{log('MANIFEST PARSED — playing');video.play().catch(()=>{});});
       hls.loadSource(proxy);
-      if(j.data.statusUrl){
-        // nyaa playlists grow while the worker transcodes; once the manifest exists the worker
-        // has probed the file, so pass its full length to hls.js instead of the partial one.
-        hls.once(Hls.Events.MANIFEST_LOADED,async()=>{
-          let full=null;
-          try{const st=(await (await fetch(j.data.statusUrl)).json()).data||{};full=st.hls&&st.hls.duration>0?st.hls.duration:null;}catch(e){log('status fetch failed: '+e.message);}
-          hls.attachMedia(full?{media:video,overrides:{duration:full}}:video);
-          log('hls.js attached (MSE)'+(full?' full duration '+Math.round(full)+'s':''));
-        });
-      } else {
-        hls.attachMedia(video);
-        log('hls.js attached (MSE)');
-      }
+      hls.attachMedia(video);
+      log('hls.js attached (MSE)');
     } else if(video.canPlayType('application/vnd.apple.mpegurl')){
       video.src=proxy; log('native HLS (Safari)');
     } else {

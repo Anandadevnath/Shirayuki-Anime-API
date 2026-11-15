@@ -10,7 +10,7 @@ When this file and `AGENTS.md` overlap, keep `AGENTS.md` as the single source an
 
 ## Verifying changes
 
-`npm test` covers only the nyaa provider and stream worker (pure parsing/ranking/token/guard logic). Everything else is verified against a running server:
+There is no test suite. Verify changes against a running server:
 
 ```bash
 npm run dev                                   # serves on http://localhost:4000

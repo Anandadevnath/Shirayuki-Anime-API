@@ -6,10 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "stream": "node stream.js",
-    "stream:dev": "nodemon --watch stream-worker --watch src/nyaa stream.js",
-    "test": "node --test \"test/**/*.test.js\""
+    "dev": "nodemon index.js"
   },
   "keywords": [
     "anime",
@@ -24,8 +21,7 @@
     "cheerio": "^1.1.2",
     "dotenv": "^16.5.0",
     "envalid": "^8.0.0",
-    "hono": "^4.7.10",
-    "webtorrent": "^3.0.21"
+    "hono": "^4.7.10"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
