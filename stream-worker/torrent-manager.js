@@ -67,27 +67,13 @@ const prioritizeFile = (torrent, file) => {
   torrent.critical(start, Math.min(end, start + pieces));
 };
 
-// A session touched within this window counts as "being watched" and is never evicted.
-const ACTIVE_WINDOW_MS = 2 * 60 * 1000;
-
-export class WorkerBusyError extends Error {
-  constructor() {
-    super('Stream worker is at capacity, try again in a few minutes');
-    this.status = 503;
-  }
-}
-
 const isLive = (session) => sessions.get(session.key) === session;
 
-/** Pick an idle session to evict, or throw if every slot is actively watched. */
+/** When full, evict the least recently used session: the newest request wins. */
+// shortcut: a new viewer always evicts the oldest stream, fine for one viewer; add per-viewer limits if shared.
 const reserveSlot = () => {
   if (sessions.size < config.maxSessions) return null;
-  const now = Date.now();
-  const idle = [...sessions.values()]
-    .filter((s) => now - s.lastAccess > ACTIVE_WINDOW_MS)
-    .sort((a, b) => a.lastAccess - b.lastAccess)[0];
-  if (!idle) throw new WorkerBusyError();
-  return idle;
+  return [...sessions.values()].sort((a, b) => a.lastAccess - b.lastAccess)[0];
 };
 
 const createSession = (hash, sel, key) => {
@@ -108,7 +94,7 @@ const createSession = (hash, sel, key) => {
     ready: null,
   };
   sessions.set(key, session);
-  if (victim) destroySession(victim.key, 'evicted (idle, max sessions)').catch(() => {});
+  if (victim) destroySession(victim.key, 'evicted (max sessions)').catch(() => {});
   session.ready = getTorrent(hash)
     .then((torrent) => {
       if (!isLive(session)) throw new Error('session closed');
