@@ -37,7 +37,7 @@ const isAllowedHost = (urlStr) => {
   }
 };
 
-const looksLikePlaylist = (url, contentType, body) =>
+export const looksLikePlaylist = (url, contentType, body) =>
   /\.m3u8(\?|$)/i.test(url) ||
   /mpegurl/i.test(contentType || '') ||
   /application\/x-mpegURL/i.test(contentType || '') ||
@@ -51,7 +51,7 @@ const buildProxyUrl = (basePath, absoluteUrl, referer, ext = '') => {
 
 // Rewrite a playlist so every URI (segments, variants, keys) is routed back
 // through this proxy, preserving the referer needed by the upstream CDN.
-const rewritePlaylist = (body, playlistUrl, referer, basePath) => {
+export const rewritePlaylist = (body, playlistUrl, referer, basePath) => {
   const resolve = (uri) => new URL(uri, playlistUrl).toString();
   // A master playlist references child variants (.m3u8); a media playlist
   // references TS segments (.ts). Detect which one we're rewriting so the
@@ -83,7 +83,7 @@ const rewritePlaylist = (body, playlistUrl, referer, basePath) => {
 // The MegaPlay CDN obfuscates TS segments by serving them with a fake image
 // content-type. TS sync bytes (0x47) repeat every 188 bytes, so a 3-point check
 // reliably identifies them.
-const isTransportStream = (buf) => {
+export const isTransportStream = (buf) => {
   if (buf.length < 188 * 3) return false;
   return buf[0] === 0x47 && buf[188] === 0x47 && buf[376] === 0x47;
 };

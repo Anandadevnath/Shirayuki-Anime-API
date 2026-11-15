@@ -27,7 +27,23 @@ import sys
 import traceback
 
 
-def fetch_page(req):
+COOKIE_POLL_MS = 500
+
+
+def wait_for_cookie(name, timeout_s, captured):
+    """page_action: poll the browser context until cookie `name` exists, then
+    copy every context cookie (incl. httpOnly ones JS can't see) into `captured`."""
+    def action(page):
+        for _ in range(int(timeout_s * 1000 / COOKIE_POLL_MS)):
+            if any(c["name"] == name for c in page.context.cookies()):
+                break
+            page.wait_for_timeout(COOKIE_POLL_MS)
+        captured["cookies"] = {c["name"]: c["value"] for c in page.context.cookies()}
+        return page
+    return action
+
+
+def fetch_page(req, captured):
     """Return the parsed page from fetching `url`. Raises on failure."""
     from scrapling.fetchers import Fetcher, DynamicFetcher, StealthyFetcher
 
@@ -38,6 +54,16 @@ def fetch_page(req):
     if req.get("stealth"):
         if not hasattr(StealthyFetcher, "fetch"):
             raise RuntimeError("stealth features not installed - run: pip install 'scrapling[fetchers]' && scrapling install")
+        # wait_cookie: internal-only (not exposed by the public /scrapling route);
+        # used by providers whose API is gated on a JS-issued session cookie.
+        if req.get("wait_cookie"):
+            return StealthyFetcher.fetch(
+                req["url"],
+                headless=True,
+                block_ads=True,
+                timeout=timeout * 1000,
+                page_action=wait_for_cookie(req["wait_cookie"], timeout, captured),
+            )
         return StealthyFetcher.fetch(req["url"], headless=True, network_idle=True)
 
     if req.get("js"):
@@ -86,8 +112,11 @@ def main():
         return
 
     result = {"ok": False, "url": req.get("url"), "status": None, "text": None, "extracts": None}
+    captured = {}
     try:
-        page = fetch_page(req)
+        page = fetch_page(req, captured)
+        if "cookies" in captured:
+            result["cookies"] = captured["cookies"]
         result["status"] = getattr(page, "status", None) or getattr(page, "status_code", None)
         text = getattr(page, "html_content", None) or getattr(page, "text", None)
         result["text"] = str(text)[:200000] if text is not None else None

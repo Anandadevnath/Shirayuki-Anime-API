@@ -20,6 +20,7 @@ import hianimeEpisodeServersRouter from "./src/hianime/router/episode-servers.js
 import hianimeEpisodeSourcesRouter from "./src/hianime/router/streaming-server.js";
 import hianimeProxyRouter from "./src/hianime/router/proxy.js";
 import scraplingRouter from "./src/scrapling/router/index.js";
+import anvRouter from "./src/anv/router/index.js";
 import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
 
@@ -64,6 +65,11 @@ app.route("/api/v2/reanime/episode/sources", reanimeEpisodeSourcesRouter);
 app.route("/api/v2/reanime/proxy", reanimeProxyRouter);
 
 app.route("/api/v2/scrapling", scraplingRouter);
+
+// anv.to: catalog is open JSON; streams need a session cookie that Scrapling's
+// stealth browser obtains once per process (see src/anv/_shared.js).
+app.route("/api/v2/anv/play", createPlayPage("/api/v2/anv/episode/sources"));
+app.route("/api/v2/anv", anvRouter);
 
 // Built-in HLS player preview page (plays proxyM3u8 through hls.js).
 app.route("/api/v2/hianime/play", createPlayPage("/api/v2/hianime/episode/sources"));

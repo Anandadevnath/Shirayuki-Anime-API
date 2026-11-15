@@ -193,6 +193,37 @@ export const API_CATALOG = {
         },
       ],
     },
+    {
+      id: 'anv',
+      name: 'anv',
+      accent: '#22c55e',
+      source: 'anv.to catalog API + Scrapling session cookie',
+      groups: [
+        {
+          title: 'Listings',
+          items: [
+            { label: 'Home', path: '/api/v2/anv', desc: 'Home sections (hero, trending, ...) from anv.to /api/catalog HomeAnime.' },
+            { label: 'Browse', path: '/api/v2/anv/browse?page=1', desc: 'Paginated full-catalog browse.' },
+            { label: 'Anime details', path: '/api/v2/anv/anime/naruto-eybxz', desc: 'Synopsis, score, genres, studios, MAL id & anv numeric id.' },
+            { label: 'Episodes', path: '/api/v2/anv/anime/naruto-eybxz/episodes', desc: 'Episode list with titles, thumbnails & fillers.' },
+          ],
+        },
+        {
+          title: 'Search',
+          items: [
+            { label: 'Search', path: '/api/v2/anv/search?q=naruto&page=1', desc: 'Keyword search with pageInfo.' },
+          ],
+        },
+        {
+          title: 'Streaming',
+          items: [
+            { label: 'Episode sources', path: '/api/v2/anv/episode/sources?animeId=naruto-eybxz&ep=1&category=sub', desc: 'hianime-shaped response: servers (Orange/Pear/Banana), m3u8 link, 12 subtitle tracks, proxied proxyM3u8. First call launches a stealth browser for the session cookie (~4s).' },
+            { label: 'Proxy', path: '/api/v2/anv/proxy?url=...', desc: 'Cookie-carrying HLS proxy for anv.to/stream/* (master, variants, disguised TS segments, VTT).', noTry: true },
+            { label: 'Player page', path: '/api/v2/anv/play?animeId=naruto-eybxz&ep=1', desc: 'Built-in HLS player that plays the anv stream through hls.js.' },
+          ],
+        },
+      ],
+    },
   ],
 };
 
