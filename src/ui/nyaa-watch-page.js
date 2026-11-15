@@ -126,9 +126,24 @@ const playInline = async (server) => {
       video.appendChild(el);
     });
     if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ manifestLoadingTimeOut: 60000, manifestLoadingMaxRetry: 4, levelLoadingTimeOut: 60000, fragLoadingTimeOut: 60000 });
+      hls = new Hls({ manifestLoadingTimeOut: 60000, manifestLoadingMaxRetry: 4, levelLoadingTimeOut: 60000, fragLoadingTimeOut: 60000, startFragPrefetch: true });
+      // The playlist grows while the worker transcodes; show the full length (ffprobe, via /status) from the start.
+      // hls.js only ever raises the MediaSource duration, so it keeps this value until the stream ends.
+      let mediaSource = null;
+      let fullDuration = 0;
+      const applyDuration = () => {
+        if (!mediaSource || !fullDuration || mediaSource.readyState !== 'open' || mediaSource.duration >= fullDuration) return;
+        if ([...mediaSource.sourceBuffers].some((b) => b.updating)) return;
+        try { mediaSource.duration = fullDuration; } catch { /* busy: retried on the next buffered fragment */ }
+      };
+      const statusUrl = data.sources[0].url.replace('/stream/', '/status/').replace('/index.m3u8', '');
+      hls.on(Hls.Events.MEDIA_ATTACHED, (e, d) => { mediaSource = d.mediaSource || null; });
+      hls.on(Hls.Events.FRAG_BUFFERED, applyDuration);
       hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) status('Playback error: ' + d.details, true); });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+        fetch(statusUrl).then((r) => r.json()).then((j) => { fullDuration = Number(j.data?.hls?.duration) || 0; applyDuration(); }).catch(() => {});
+      });
       hls.loadSource(data.sources[0].url);
       hls.attachMedia(video);
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
