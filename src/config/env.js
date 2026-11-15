@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { cleanEnv, port, str, num } from 'envalid';
+import { cleanEnv, port, str, num, bool } from 'envalid';
 
 const env = cleanEnv(process.env, {
   PORT: port({ default: 4000 }),
@@ -16,6 +16,8 @@ const env = cleanEnv(process.env, {
   // Public origin of the stream worker (stream.js); sourceUrl points here.
   // Plain str (validated where used) so a typo can't take down every provider at boot.
   STREAM_ORIGIN: str({ default: 'http://localhost:4100' }),
+  // true = this API process also serves the stream worker routes (one-service deploy).
+  STREAM_EMBED: bool({ default: false }),
   // Shared HMAC secret between the API and the stream worker. Required in production.
   STREAM_SECRET: str({ default: '' }),
   // How long a signed stream URL stays valid.

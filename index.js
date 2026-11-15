@@ -94,6 +94,17 @@ app.route("/api/v2/nyaa/proxy", nyaaProxyRouter);
 app.route("/api/v2/nyaa/watch", createNyaaWatchPage());
 
 
+// One-service deploy (Render free): serve the stream worker routes from this process too.
+// Imported lazily so a plain API never loads webtorrent.
+if (env.STREAM_EMBED) {
+  const { mkdir } = await import("node:fs/promises");
+  const { default: streamConfig } = await import("./stream-worker/config.js");
+  const { createWorkerApp } = await import("./stream-worker/routes.js");
+  await mkdir(streamConfig.torrentDir, { recursive: true });
+  await mkdir(streamConfig.hlsDir, { recursive: true });
+  app.route("/", createWorkerApp());
+}
+
 app.notFound((c) => {
   return c.json(
     {

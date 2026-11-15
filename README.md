@@ -249,7 +249,9 @@ STREAM_READY_TIMEOUT_MS=50000
 STREAM_TRANSCODE=auto                      # auto | always | never
 ```
 
-**Split deploy:** the API (catalog + `/episode/sources`) can stay on Vercel. Run `npm run stream` on a VPS, Railway or Fly (see `Dockerfile.stream`), or on your PC behind a Cloudflare Tunnel. Then set `STREAM_ORIGIN` on Vercel to that public URL, and use the same `STREAM_SECRET` on both.
+**One service:** set `STREAM_EMBED=true` and the API process also serves the worker routes; `Dockerfile` + `render.yaml` do this (`STREAM_ORIGIN` = the service's own URL).
+
+**Split deploy:** the API (catalog + `/episode/sources`) can stay on Vercel. Run `npm run stream` on a VPS, Railway or Fly (see `Dockerfile`, run with `node stream.js`), or on your PC behind a Cloudflare Tunnel. Then set `STREAM_ORIGIN` on Vercel to that public URL, and use the same `STREAM_SECRET` on both.
 
 ---
 
