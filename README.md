@@ -1,314 +1,284 @@
-<p align="center">
-  <a href="https://github.com/Anandadevnath/Shirayuki-Anime-API"><img src="https://img.shields.io/github/stars/Anandadevnath/Shirayuki-Anime-API?style=social" alt="Stars"></a>
-  <a href="https://github.com/Anandadevnath/Shirayuki-Anime-API/network/members"><img src="https://img.shields.io/github/forks/Anandadevnath/Shirayuki-Anime-API?style=social" alt="Forks"></a>
-  <img src="https://img.shields.io/badge/Framework-Hono-ee6c00?style=for-the-badge&logo=fire" alt="Hono">
-  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
-  <img src="https://img.shields.io/badge/Platform-REST%20API-green?style=for-the-badge" alt="REST API">
-  <img src="https://img.shields.io/badge/License-ISC-purple?style=for-the-badge" alt="License">
-</p>
+# Shirayuki Anime API
 
-<div align="center">
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/Node-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Framework: Hono](https://img.shields.io/badge/Hono-4.x-E36002?logo=hono&logoColor=white)](https://hono.dev)
 
-<pre>
-███████╗██╗  ██╗██╗██████╗  █████╗ ██╗   ██╗██╗   ██╗██╗  ██╗██╗
-██╔════╝██║  ██║██║██╔══██╗██╔══██╗╚██╗ ██╔╝██║   ██║██║ ██╔╝██║
-███████╗███████║██║██████╔╝███████║ ╚████╔╝ ██║   ██║█████╔╝ ██║
-╚════██║██╔══██║██║██╔══██╗██╔══██║  ╚██╔╝  ██║   ██║██╔═██╗ ██║
-███████║██║  ██║██║██║  ██║██║  ██║   ██║   ╚██████╔╝██║  ██╗██║
-╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝
-</pre>
+A self-hostable REST API that unifies anime metadata, search, and HLS streaming
+across five upstream sources behind one consistent response shape. Built with
+[Hono](https://hono.dev) on Node, no build step, no database.
 
-# 🔥 Shirayuki Anime API
+Every route is a plain `GET` returning JSON. Streams are resolved server-side
+and served through a built-in HLS proxy, so any player that speaks `.m3u8`
+(with `hls.js` in the browser) can consume them. A server-rendered API explorer
+ships with the project at `/`.
 
-> **The ultimate anime scraping API — fast, lightweight, and powered by Hono**
+## Providers
 
-*A RESTful API that unifies anime data across **Anikoto** and **HiAnime (hianime.at)** — listings, search, metadata, and HLS streaming sources, all wrapped in a clean Hono interface.*
+| Provider | Upstream | Coverage |
+|----------|----------|----------|
+| **HiAnime** | `hianime.at` | Listings, search, seasons, characters, streaming (MegaPlay + vidplay resolvers) |
+| **Anikoto** | `anikototv.to` | Home, search, details, streaming (MegaPlay resolver) |
+| **Animex** | `animex.one` | GraphQL catalog, search, streaming (player API) |
+| **Re:ANIME** | `reanime.to` | Public JSON catalog, schedule, staff/characters, WASM-decoded streams |
+| **anv** | `anv.to` | Open catalog API; streams gated behind a session cookie (handled internally) |
 
-</div>
+A sixth module, **Scrapling**, is a generic fetch/parse bridge to a Python
+worker — useful for one-off scraping tasks outside the anime providers.
 
----
+## Requirements
 
-## ✨ Features
+- Node.js 22+
+- Python 3 + [Scrapling](https://github.com/D4Vinci/Scrapling) (optional — only
+  for the `/scrapling` bridge and the `anv` provider's cookie bootstrap)
 
-<div align="center">
-
-| Feature | Description |
-|---------|-------------|
-| 🏠 **Home & Trending** | Spotlight, trending anime, top charts |
-| 🔍 **Smart Search** | Keyword search + autocomplete suggestions |
-| 📺 **Anime Details** | Full metadata & episode lists |
-| 🎬 **Streaming Sources** | Episode servers and video sources (m3u8) |
-| 🔌 **Scrapling Bridge** | Fetch / parse any page via the Python worker |
-| 🌐 **Multi-Provider** | Anikoto · HiAnime (hianime.at) |
-| 🔁 **HLS Proxy** | Ready-to-play proxied `.m3u8` streams |
-
-</div>
-
----
-
-## 🚀 Quick Start
+## Quick start
 
 ```bash
-# Clone the repository
 git clone https://github.com/Anandadevnath/Shirayuki-Anime-API.git
 cd Shirayuki-Anime-API
-
-# Install dependencies
 npm install
 
-# Start the server
-npm run start
-
-# Open the API explorer → http://localhost:3000
+npm run start          # or: npm run dev (nodemon reload)
 ```
 
----
+The server listens on **port 4000** by default.
 
-## 📡 API Endpoints
+```bash
+curl http://localhost:4000/health
+# {"success":true}
+```
 
-### Anikoto
+- `http://localhost:4000/` — HTML API explorer (hub for all providers)
+- `http://localhost:4000/p/<provider>` — explorer page for one provider
+- `http://localhost:4000/endpoints.json` — machine-readable endpoint catalog
 
-> `https://anikototv.to` scrape · MegaPlay streaming (`getSources`). Home is an aggregate of hotspot slides, latest-episodes, upcoming, and Day/Week/Month top rankings.
+### Optional: Python bridge setup
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/anikoto` | Home — spotlight, latest episodes, upcoming, top charts |
-| `GET` | `/api/v2/anikoto/search?q=&page=1` | Keyword search |
-| `GET` | `/api/v2/anikoto/search/suggestion?q=` | Search-style suggestions |
-| `GET` | `/api/v2/anikoto/anime/:animeId` | Full anime details (synopsis, genres, studios, score) |
-| `GET` | `/api/v2/anikoto/anime/:animeId/episodes` | Episode list with sub/dub ranges |
-| `GET` | `/api/v2/anikoto/episode/servers?animeId=&ep=1` | Streaming servers (sub/dub) |
-| `GET` | `/api/v2/anikoto/episode/sources?animeId=&ep=&server=&category=sub` | Video sources (m3u8) |
-| `GET` | `/api/v2/anikoto/proxy?url=&ref=` | HLS playlist proxy |
-| `GET` | `/api/v2/anikoto/play?animeId=&ep=&server=&category=` | Built-in browser player page |
+Needed only if you use `/api/v2/scrapling/fetch` or the `anv` provider without
+a pre-set cookie:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/scrapling install   # browser binaries for js/stealth modes
+```
+
+The Node bridge auto-detects `.venv/bin/python` (override with
+`SCRAPLING_PYTHON`).
+
+## Configuration
+
+Create a `.env` file (all fields optional):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `4000` | HTTP port |
+| `NODE_ENV` | `development` | `development` / `production` / `test` (invalid values throw at boot) |
+| `ANV_COOKIE` | — | Pre-obtained `shiro_watch` cookie for `anv.to`; skips the stealth-browser bootstrap. Useful on hosts without Python. |
+| `SCRAPLING_PYTHON` | — | Path to the Python interpreter for the Scrapling bridge. |
+
+## API reference
+
+Base URL: `http://localhost:4000/api/v2`
+
+**Conventions**
+
+- All routes are `GET`. CORS is enabled globally.
+- Success envelope: `{"success": true, "data": ..., "extractionTimeSec": 0.42}`
+- Error envelope: `{"success": false, "error": "..."}`. Unmatched routes return
+  `{"success": false, "message": "Endpoint not found"}` with `404`.
+- Metadata responses are cached in memory for 5 minutes per route + parameter set;
+  resolved stream sources for 60 seconds (provider tokens expire quickly). The cache
+  is per process and cleared on restart.
 
 ### HiAnime
 
-> **`https://hianime.at` scrape** · Multi-source streaming — **MegaPlay** family (`bibiemb`, `megaplay`, `megacloud`, `vidcloud`, ...) and the **vidplay** family (`otakuhg`, `otakuvid`, `playmogo`, ...), both resolving to `.m3u8` HLS with subtitles, intro & outro tracks.
+| Endpoint | Description |
+|----------|-------------|
+| `/hianime` | Home — spotlight, trending, top-viewed charts, latest sections |
+| `/hianime/schedule` | Weekly release calendar |
+| `/hianime/browse/:category?page=1` | Curated pages (`az-list`, `most-popular`, `tv`, `movie`, …) |
+| `/hianime/genre/:genre?page=1` | Titles by genre |
+| `/hianime/search?q=&page=1` | Keyword search |
+| `/hianime/search/suggestion?q=` | Autocomplete suggestions |
+| `/hianime/anime/:animeId` | Full metadata (synopsis, score, genres, rating) |
+| `/hianime/anime/:animeId/episodes` | Episode list with episode ids |
+| `/hianime/anime/:animeId/seasons` | Franchise seasons |
+| `/hianime/anime/:animeId/characters?limit=` | Characters |
+| `/hianime/anime/:animeId/artists` | Staff |
+| `/hianime/anime/:animeId/art` | Title art, posters, characters, company |
+| `/hianime/episode/servers?animeEpisodeId=&ep=1` | Sub/dub servers for an episode (`HD-1`, `HD-2`, …) |
+| `/hianime/episode/sources?animeEpisodeId=&ep=1&server=HD-1&category=sub` | m3u8 + subtitle tracks + intro/outro. `server` optional — resolvers are tried in order |
+| `/hianime/proxy?url=&ref=` | HLS playlist proxy (rewrites master → `stream.m3u8`) |
+| `/hianime/play?animeEpisodeId=&ep=1&server=&category=` | Built-in hls.js player page |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v2/hianime` | Home — trending, top-airing, seasonal, latest episodes |
-| `GET` | `/api/v2/hianime/browse/:category?page=1` | Curated listing pages (az-list, most-popular, tv, movie...) |
-| `GET` | `/api/v2/hianime/genre/:genre?page=1` | Titles by genre |
-| `GET` | `/api/v2/hianime/search?q=&page=1` | Keyword search |
-| `GET` | `/api/v2/hianime/search/suggestion?q=` | Autocomplete |
-| `GET` | `/api/v2/hianime/anime/:animeId` | Full anime details (synopsis, score, genres) |
-| `GET` | `/api/v2/hianime/anime/:animeId/episodes` | Episode list with watch URLs |
-| `GET` | `/api/v2/hianime/episode/servers?animeEpisodeId=&ep=1` | Streaming servers (sub/dub) |
-| `GET` | `/api/v2/hianime/episode/sources?animeEpisodeId=&ep=&server=&category=sub` | Video sources (m3u8) |
-| `GET` | `/api/v2/hianime/proxy?url=&ref=` | HLS playlist proxy |
-| `GET` | `/api/v2/hianime/play?animeEpisodeId=&ep=&server=&category=` | Built-in browser player page |
+### Anikoto
 
-### Scrapling (Python bridge)
+| Endpoint | Description |
+|----------|-------------|
+| `/anikoto` | Home — spotlight, latest episodes, upcoming, day/week/month rankings |
+| `/anikoto/search?q=&page=1` | Keyword search |
+| `/anikoto/search/suggestion?q=` | Suggestions |
+| `/anikoto/anime/:animeId` | Full metadata + episode list |
+| `/anikoto/anime/:animeId/episodes` | Episodes with sub/dub availability |
+| `/anikoto/episode/servers?animeId=&ep=1` | Servers (`HD-1`, `Vidstream-1`, `Vidstream-2`) |
+| `/anikoto/episode/sources?animeId=&ep=1&server=Vidstream-1&category=sub` | m3u8 + subtitles |
+| `/anikoto/proxy?url=&ref=` | HLS playlist proxy |
+| `/anikoto/play?animeId=&ep=1` | Built-in player page |
 
-> Fetch and parse pages with [Scrapling](https://github.com/D4Vinci/Scrapling). The
-> request is executed by a Python worker in the project `.venv` via `child_process`
-> and `scripts/scrapling_worker.py`. Vanilla fetches need no browser; `js=1` uses
-> browser rendering (Playwright) and `stealth=1` uses Scrapling's anti-bot fetcher.
+### Animex
 
-| `GET` | `/api/v2/scrapling/fetch?url=&js=&proxy=&headers=&extract=&timeout=` | Fetch a page / extract selectors |
+| Endpoint | Description |
+|----------|-------------|
+| `/animex` | Home — trending, popular, latest additions |
+| `/animex/catalog?q=&page=1&sort=&perPage=30` | Full catalog browse (site `/catalog` equivalent) |
+| `/animex/search?q=&page=1` | Keyword search (`q` optional — omit for full-catalog pagination) |
+| `/animex/search/suggestion?q=` | Suggestions |
+| `/animex/anime/:animeId` | Metadata, characters, relations, recommendations |
+| `/animex/anime/:animeId/episodes` | Episodes with titles, fillers, thumbnails |
+| `/animex/episode/servers?animeId=&ep=1` | Providers (`Nero`, `Yuki`, `Zuna`, …) |
+| `/animex/episode/sources?animeId=&ep=1&server=nero&category=sub` | m3u8 + subtitles + intro/outro chapters |
+| `/animex/proxy?url=&ref=` | HLS playlist proxy |
+| `/animex/play?animeId=&ep=1` | Built-in player page |
 
----
+### Re:ANIME
 
-## 💡 Usage Examples
+| Endpoint | Description |
+|----------|-------------|
+| `/reanime` | Home — trending, latest aired, upcoming |
+| `/reanime/schedule` | Weekly calendar (UTC) |
+| `/reanime/catalog?page=1&format=TV` | Catalog browse; filters: `format`, `status`, `season`, `year` (`sort` is ignored upstream) |
+| `/reanime/genre/:genre?page=1` | Titles by genre |
+| `/reanime/search?q=&format=&status=&season=&year=&genre=` | Keyword search with filters |
+| `/reanime/search/suggestion?q=` | Suggestions |
+| `/reanime/anime/:animeId` | Metadata, external ids, studios |
+| `/reanime/anime/:animeId/episodes?page=1` | Episodes with titles, fillers, air dates |
+| `/reanime/anime/:animeId/seasons` | Franchise relations + season counts |
+| `/reanime/anime/:animeId/relations` | Related titles |
+| `/reanime/anime/:animeId/characters` | Characters with roles |
+| `/reanime/anime/:animeId/artists` | Staff with roles |
+| `/reanime/anime/:animeId/art` | Poster/banner/colors/artwork |
+| `/reanime/episode/servers?animeId=&ep=1` | flixcloud servers (`HD-1`, `HD-2`) |
+| `/reanime/episode/sources?animeId=&ep=1` | Server-resolved m3u8 (streams are decrypted server-side; response is hianime-shaped) |
+| `/reanime/proxy?url=&key=` | HLS proxy (decrypts and rewrites playlists and segments) |
+| `/reanime/play?animeId=&ep=1` | Built-in player page |
 
-### Get Home
+### anv
+
+| Endpoint | Description |
+|----------|-------------|
+| `/anv` | Home sections |
+| `/anv/browse?page=1` | Paginated full-catalog browse |
+| `/anv/search?q=&page=1` | Keyword search |
+| `/anv/anime/:animeId` | Metadata incl. MAL id and anv numeric id (`animeId` = slug or numeric) |
+| `/anv/anime/:animeId/episodes` | Episodes with titles, thumbnails, fillers |
+| `/anv/episode/servers?animeId=&ep=1` | Sub/dub server lists (`Orange`, `Pear`, `Banana`) |
+| `/anv/episode/sources?animeId=&ep=1&server=&category=sub` | m3u8 + subtitles + AniSkip intro/outro. The first call bootstraps a session cookie via the stealth browser (~4s) |
+| `/anv/proxy?url=` | Cookie-carrying HLS proxy for `anv.to/stream/*` |
+| `/anv/play?animeId=&ep=1` | Built-in player page |
+
+### Scrapling bridge
+
+| Endpoint | Description |
+|----------|-------------|
+| `/scrapling/fetch?url=&js=&stealth=&proxy=&headers=&extract=&timeout=` | Fetch a page through the Python worker |
+
+Parameters: `url` (required, http/https), `js` (`true` for browser rendering),
+`stealth` (`true` for the anti-bot fetcher), `proxy`, `headers` (URL-encoded
+JSON object), `extract` (URL-encoded JSON array of
+`{"name","kind","selector","many"}` with `kind` of `css` or `xpath`),
+`timeout` (seconds, default 25).
+
+## Usage example
+
+A typical client flow — search, pick an episode, resolve a stream:
+
 ```bash
-# Anikoto home
-curl "http://localhost:3000/api/v2/anikoto"
+BASE=http://localhost:4000/api/v2
 
-# HiAnime home
-curl "http://localhost:3000/api/v2/hianime"
+# 1. Search
+curl "$BASE/hianime/search?q=frieren"
+
+# 2. Episode list (episode ids come from here)
+curl "$BASE/hianime/anime/frieren-beyond-journeys-end-481/episodes"
+
+# 3. Available servers for episode 1
+curl "$BASE/hianime/episode/servers?animeEpisodeId=frieren-beyond-journeys-end-481&ep=1"
+
+# 4. Playable m3u8 + subtitles
+curl "$BASE/hianime/episode/sources?animeEpisodeId=frieren-beyond-journeys-end-481&ep=1&server=HD-1&category=sub"
 ```
 
-### Search for Anime
-```bash
-# Anikoto
-curl "http://localhost:3000/api/v2/anikoto/search?q=attack%20on%20titan&page=1"
+The `sources` response contains the provider's direct `.m3u8` in `sources[].url`,
+a browser-playable `sources[].embeddedUrl` that routes the playlist through the
+provider's `/proxy`, and `sources[].proxyM3u8` pointing at the built-in `/play`
+page for that episode. `tracks` carries subtitles and `intro`/`outro` gives skip
+markers where the provider supplies them.
 
-# HiAnime
-curl "http://localhost:3000/api/v2/hianime/search?q=attack%20on%20titan&page=1"
-```
+To preview without writing a client, open the `play` variant of any provider in
+a browser — it is a small hls.js page wired to the proxy.
 
-### Get Anime Details
-```bash
-# Anikoto
-curl "http://localhost:3000/api/v2/anikoto/anime/naruto-eybxz"
-
-# HiAnime
-curl "http://localhost:3000/api/v2/hianime/anime/one-piece-1"
-```
-
-### Get Episode Servers
-```bash
-# Anikoto
-curl "http://localhost:3000/api/v2/anikoto/episode/servers?animeId=naruto-eybxz&ep=1"
-
-# HiAnime
-curl "http://localhost:3000/api/v2/hianime/episode/servers?animeEpisodeId=one-piece-1&ep=1"
-```
-
-### Get Episode Sources
-```bash
-# Anikoto — video sources (m3u8) for episode 1
-curl "http://localhost:3000/api/v2/anikoto/episode/sources?animeId=naruto-eybxz&ep=1&server=Vidstream-1&category=sub"
-
-# HiAnime — video sources (m3u8) for episode 1
-curl "http://localhost:3000/api/v2/hianime/episode/sources?animeEpisodeId=one-piece-1&ep=1&server=HD-1&category=sub"
-```
-
-### Play the stream in a browser
-```bash
-# Anikoto player page (auto-plays via hls.js)
-open "http://localhost:3000/api/v2/anikoto/play?animeId=naruto-eybxz&ep=1&server=Vidstream-1&category=sub"
-
-# HiAnime player page
-open "http://localhost:3000/api/v2/hianime/play?animeEpisodeId=one-piece-1&ep=1&server=HD-1&category=sub"
-
-# Or proxy a raw m3u8 URL yourself
-curl "http://localhost:3000/api/v2/anikoto/proxy?url=<ENCODED_M3U8_URL>&ref=https%3A%2F%2Fmegaplay.buzz%2F"
-```
-
----
-
-### Scrapling Fetch (Python bridge)
-
-```bash
-# Vanilla fetch — returns page text + extracted selectors
-curl \
-  "http://localhost:3000/api/v2/scrapling/fetch?url=https%3A%2F%2Fexample.com&extract=%5B%7B%22name%22%3A%22title%22%2C%22kind%22%3A%22xpath%22%2C%22selector%22%3A%22%2F%2Ftitle%2Ftext()%22%7D%5D"
-
-# Browser-rendered fetch (requires Playwright in .venv)
-curl "http://localhost:3000/api/v2/scrapling/fetch?url=https%3A%2F%2Fexample.com&js=true"
-```
-
-> **Params** — `url` (required, http(s)) · `js` (boolean) · `stealth` (boolean) ·
-> `proxy` (string) · `headers` (URL-encoded JSON object) · `extract` (URL-encoded
-> JSON array `[{name,kind,selector,many}]` with `kind` ∈ `css`|`xpath`) · `timeout`.
->
-> **Response** — `{ success, ok, status, url, text, extracts, error, extractionTimeSec }`;
-
-## ⚙️ Configuration
-
-Create a `.env` file in the project root:
-
-```env
-PORT=4000                    # Server port (default: 4000)
-NODE_ENV=development         # Environment: development/production/test
-
-```
-
-Deploy: `Dockerfile` + `render.yaml` run the API as one Render web service (health check `/health`).
-
----
-
-## 🛠️ Tech Stack
-
-<div align="center">
-
-| Technology | Purpose |
-|------------|---------|
-| <img src="https://img.shields.io/badge/Hono-ee6c00?style=flat-square&logo=fire" height="20"> | Web framework |
-| <img src="https://img.shields.io/badge/node--server-135F8D?style=flat-square&logo=node.js" height="20"> | Node adapter (serve the Hono app) |
-| <img src="https://img.shields.io/badge/Cheerio-259BFF?style=flat-square" height="20"> | HTML parsing |
-| <img src="https://img.shields.io/badge/Axios-5A29E4?style=flat-square" height="20"> | HTTP client |
-
-</div>
-
-> Scraping stack: Axios + Cheerio per provider, with a small shared scraper utils layer.
-
----
-
-## 📁 Project Structure
-
-```
-Shirayuki-Anime-API/
-├── index.js                    # Entry point — mounts all /api/v2 routers
-├── src/
-│   ├── anikoto/               # anikototv.to listings + MegaPlay streaming
-│   │   ├── controllers/       # cached controllers
-│   │   ├── router/            # Hono routers (listings, streaming, proxy)
-│   │   ├── scraper/           # scrapers (home, anime, search, servers, sources, megaplay, proxy)
-│   │   └── _shared.js        # base URL, headers, normalizers
-│   ├── hianime/              # hianime.at listings + MegaPlay/vidplay streaming
-│   │   ├── controllers/
-│   │   ├── router/
-│   │   ├── scraper/           # home, anime, search, sources, servers, vidplay, megaplay, proxy
-│   │   └── _shared.js
-│   ├── scrapling/             # Scrapling Python bridge
-│   │   ├── controllers/
-│   │   ├── router/
-│   │   └── index.js           # spawns .venv python worker
-│   ├── ui/
-│   │   ├── landing.js         # HTML API explorer (served at /)
-│   │   ├── play-page.js       # generic HLS player preview page
-│   │   └── generic-player.js  # shared player HTML used by proxy routers
-│   ├── config/
-│   │   └── env.js             # Environment validation (envalid)
-│   └── utils/
-│       ├── request-origin.js  # Resolves public scheme/host behind proxies
-│       └── scrapper-deps.js   # Scraping dependencies
-├── scripts/
-│   └── scrapling_worker.py    # Python Scrapling worker (run via .venv)
-├── package.json
-├── vercel.json                # Vercel deployment config
-└── README.md
-```
-
----
-
-## 🔀 Streaming Notes
-
-- **Anikoto** servers resolve through MegaPlay's `/getSources` — supply the server name from `/episode/servers` (e.g. `Vidstream-1`).
-- **HiAnime** servers resolve through either the MegaPlay or vidplay flow automatically, so you can omit `server` and it will iterate: first match wins.
-- Both proxies rewrite `master.m3u8` → `proxy/stream.m3u8`, keep the key URI, and proxy the TS segments.
-
----
-
-## ⚠️ Error Handling
+## Error handling
 
 | Status | Meaning |
 |--------|---------|
-| `400` | Missing required parameters |
-| `404` | Route not found |
-| `500` | Upstream or internal error |
+| `400` | Missing or invalid parameters |
+| `404` | Unknown route or provider (`/p/:id`) |
+| `403` | Upstream refused (e.g. expired `anv` session — retry to re-bootstrap) |
+| `500` | Upstream failure or internal error (`{"success":false,"error":"..."}`) |
 
----
+Providers depend on live third-party sites; transient upstream failures surface
+as `500`s and usually clear on retry or after the upstream recovers.
 
-## 🤝 Contributing
+## Project structure
 
-Contributions are welcome! Here's how you can help:
-
-```bash
-1. 🍴 Fork the repository
-2. 🌿 Create a feature branch (git checkout -b feature/amazing-feature)
-3. 💬 Commit your changes (git commit -m 'Add amazing feature')
-4. 🔀 Push to the branch (git push origin feature/amazing-feature)
-5. 🎁 Open a Pull Request
+```
+├── index.js                  # Entrypoint — Hono app, mounts every router
+├── src/
+│   ├── anikoto/              # One folder per provider, same shape each time:
+│   ├── hianime/              #   controllers/   cached route handlers
+│   ├── animex/               #   router/        Hono route definitions
+│   ├── reanime/              #   scraper/       pure fetch/parse functions
+│   ├── anv/                  #   _shared.js     base URLs, headers, normalizers
+│   ├── scrapling/            # Python bridge (spawns scripts/scrapling_worker.py)
+│   ├── ui/
+│   │   ├── landing.js        # Server-rendered API explorer + endpoint catalog
+│   │   ├── play-page.js      # Generic hls.js player page
+│   │   └── generic-player.js # Shared player HTML
+│   ├── config/env.js         # Env validation (envalid)
+│   └── utils/                # Shared scraper deps, request origin
+├── scripts/
+│   └── scrapling_worker.py   # Python Scrapling worker (stdin JSON → stdout JSON)
+├── Dockerfile
+└── render.yaml
 ```
 
----
+Adding a provider means adding a `src/<name>/` set and registering its routers
+in `index.js` — there is no auto-loader.
 
-## 📜 License
+## Deployment
 
-This project is licensed under the **ISC License** — free to use, modify, and share.
+The included `Dockerfile` (Node 22, non-root) and `render.yaml` deploy the API
+as a single Render web service with a `/health` check. Any Docker host works
+the same way:
 
----
+```bash
+docker build -t shirayuki-api .
+docker run -p 4000:4000 -e NODE_ENV=production shirayuki-api
+```
 
-<div align="center">
+Note: the in-memory cache and the `anv` session cookie are per-process — scale
+horizontally only if you accept each instance warming its own cache.
 
-<pre>
-██████╗ ███████╗██╗   ██╗    ███████╗███╗   ██╗██████╗ 
-██╔══██╗██╔════╝██║   ██║    ██╔════╝████╗  ██║██╔══██╗
-██║  ██║█████╗  ██║   ██║    █████╗  ██╔██╗ ██║██║  ██║
-██║  ██║██╔══╝  ╚██╗ ██╔╝    ██╔══╝  ██║╚██╗██║██║  ██║
-██████╔╝███████╗ ╚████╔╝     ███████╗██║ ╚████║██████╔╝
-╚═════╝ ╚══════╝  ╚═══╝      ╚══════╝╚═╝  ╚═══╝╚═════╝ 
-</pre>
+## Disclaimer
 
-*Built with ❤️ and lots of coffee*
+This project scrapes public third-party websites and is intended for
+educational and personal use. It is not affiliated with, endorsed by, or
+connected to any of the upstream providers. Content availability depends
+entirely on those third parties. Respect their terms of service and use the
+API responsibly.
 
-**Stars & Forks are appreciated!**
+## License
 
-</div>
+[MIT](LICENSE) © 2025 Ananda Dev Nath
