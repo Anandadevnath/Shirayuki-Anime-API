@@ -2,16 +2,40 @@ import { anvPost, getSessionCookie, invalidateSession, absoluteUrl, httpError, A
 import { getAnvAnime } from './catalog.js';
 
 const SLUG_CACHE_TTL_MS = 10 * 60 * 1000;
-const slugToId = new Map(); // slug -> { id, expiresAt }
+const ANISKIP_URL = 'https://api.aniskip.com/v2/skip-times';
+const ANISKIP_TIMEOUT_MS = 5000;
+const slugToIds = new Map(); // slug -> { anvId, malId, expiresAt }
 
 // /api/episode wants anv's numeric id; accept either that or the slug.
-const resolveAnvId = async (animeId) => {
-  if (/^\d+$/.test(animeId)) return Number(animeId);
-  const hit = slugToId.get(animeId);
-  if (hit && Date.now() < hit.expiresAt) return hit.id;
-  const { anvId } = await getAnvAnime(animeId);
-  slugToId.set(animeId, { id: anvId, expiresAt: Date.now() + SLUG_CACHE_TTL_MS });
-  return anvId;
+// A bare numeric id has no MAL id, so it gets no intro/outro.
+const resolveIds = async (animeId) => {
+  if (/^\d+$/.test(animeId)) return { anvId: Number(animeId), malId: null };
+  const hit = slugToIds.get(animeId);
+  if (hit && Date.now() < hit.expiresAt) return hit;
+  const { anvId, malId } = await getAnvAnime(animeId);
+  const ids = { anvId, malId, expiresAt: Date.now() + SLUG_CACHE_TTL_MS };
+  slugToIds.set(animeId, ids);
+  return ids;
+};
+
+// anv has no skip data; AniSkip (by MAL id) gives OP/ED in hianime's { start, end } form.
+const getSkipTimes = async (malId, episode) => {
+  const none = { intro: null, outro: null };
+  if (!malId) return none;
+  try {
+    const url = `${ANISKIP_URL}/${malId}/${episode}?types[]=op&types[]=ed&episodeLength=0`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(ANISKIP_TIMEOUT_MS) });
+    if (!res.ok) return none; // 404 = no skip times submitted for this episode
+    const { results = [] } = await res.json();
+    const pick = (type) => {
+      const r = results.find((x) => x.skipType === type)?.interval;
+      return r ? { start: Math.round(r.startTime), end: Math.round(r.endTime) } : null;
+    };
+    return { intro: pick('op'), outro: pick('ed') };
+  } catch (err) {
+    console.warn(`[anv] aniskip ${malId}/${episode} failed: ${err.message}`);
+    return none;
+  }
 };
 
 const requestEpisode = async (body, referer) => {
@@ -28,32 +52,66 @@ const pickByIdOrLabel = (list, wanted) => {
   return list.find((s) => s.id.toLowerCase() === key || s.label.toLowerCase() === key) || list[0];
 };
 
-export const getAnvEpisodeSources = async ({ animeId, ep, category = 'sub', server }) => {
+const parseEpisode = (ep) => {
   const episode = Number(ep);
   if (!Number.isInteger(episode) || episode < 1) throw httpError('ep must be a positive integer', 400);
+  return episode;
+};
 
-  const anvId = await resolveAnvId(animeId);
-  const referer = /^\d+$/.test(animeId) ? `${ANV_BASE_URL}/` : `${ANV_BASE_URL}/anime/${animeId}-episode-${episode}`;
-  const res = await requestEpisode(
-    { anilistId: anvId, malId: null, episode, first: true, prefer: category },
-    referer,
+const watchPage = (animeId, episode) =>
+  /^\d+$/.test(animeId) ? `${ANV_BASE_URL}/` : `${ANV_BASE_URL}/anime/${animeId}-episode-${episode}`;
+
+// Same shape as hianime /episode/servers: { sub: [...], dub: [...] }.
+export const getAnvEpisodeServers = async ({ animeId, ep }) => {
+  if (!animeId) throw httpError('animeId and ep query parameters are required', 400);
+  const episode = parseEpisode(ep);
+  const { anvId } = await resolveIds(animeId);
+  const embed = watchPage(animeId, episode);
+  const res = await requestEpisode({ anilistId: anvId, malId: null, episode, first: true, prefer: 'sub' }, embed);
+  if (res.status !== 200 || res.data?.status !== 'ready') {
+    throw httpError(`anv /api/episode responded ${res.status} (${res.data?.status || 'resolution-failed'})`, 502);
+  }
+
+  const servers = Object.fromEntries(
+    (res.data.variants || []).map((v) => [
+      v.id,
+      (v.sources || []).map((s) => ({
+        name: s.label,
+        serverId: s.id,
+        category: v.id,
+        embed,
+        hash: Buffer.from(embed).toString('base64'),
+      })),
+    ]),
   );
+  return { source: `${ANV_BASE_URL}/api/episode`, episodeId: String(episode), episode, servers };
+};
 
+export const getAnvEpisodeSources = async ({ animeId, ep, category = 'sub', server }) => {
+  const episode = parseEpisode(ep);
+
+  const { anvId, malId } = await resolveIds(animeId);
+  const referer = watchPage(animeId, episode);
+  const [res, skip] = await Promise.all([
+    requestEpisode({ anilistId: anvId, malId: null, episode, first: true, prefer: category }, referer),
+    getSkipTimes(malId, episode),
+  ]);
+
+  // Same keys/order as the hianime episode-sources response.
   const base = {
-    source: 'anv',
-    animeId,
-    anvId,
-    episode,
+    source: `${ANV_BASE_URL}/api/episode`,
+    episodeId: String(episode),
     category,
     server: null,
-    servers: [],
+    embed: referer,
     streamResolved: false,
     reason: null,
     note: null,
     link: null,
     tracks: [],
-    intro: null,
-    outro: null,
+    intro: skip.intro,
+    outro: skip.outro,
+    referer: null,
   };
 
   if (res.status !== 200 || res.data?.status !== 'ready') {
@@ -69,15 +127,12 @@ export const getAnvEpisodeSources = async ({ animeId, ep, category = 'sub', serv
   return {
     ...base,
     category: variant.id,
-    availableCategories: variants.map((v) => v.id),
     server: chosen.label,
-    servers: pool.map((s) => ({ serverId: s.id, name: s.label })),
     streamResolved: true,
     link: absoluteUrl(chosen.url),
     tracks: (chosen.tracks || []).map((t) => ({
       file: absoluteUrl(t.src),
       label: t.label,
-      lang: t.language,
       kind: 'captions',
       default: Boolean(t.default),
     })),

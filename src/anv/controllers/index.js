@@ -1,6 +1,6 @@
 import { wrapController } from './_cache.js';
 import { getAnvHome, getAnvSearch, getAnvBrowse, getAnvAnime } from '../scraper/catalog.js';
-import { getAnvEpisodeSources } from '../scraper/episode-sources.js';
+import { getAnvEpisodeSources, getAnvEpisodeServers } from '../scraper/episode-sources.js';
 import { proxyAnvStream } from '../scraper/proxy.js';
 import { getRequestOrigin } from '../../utils/request-origin.js';
 
@@ -37,6 +37,12 @@ export const anvEpisodesController = wrapController({
     const { id, episodesList } = await getAnvAnime(c.req.param('animeId'));
     return { animeId: id, totalEpisodes: episodesList.length, episodes: episodesList };
   },
+});
+
+export const anvEpisodeServersController = wrapController({
+  cacheKey: (c) => `servers:${c.req.query('animeId') || c.req.query('animeEpisodeId')}:${c.req.query('ep')}`,
+  handler: (c) =>
+    getAnvEpisodeServers({ animeId: c.req.query('animeId') || c.req.query('animeEpisodeId'), ep: c.req.query('ep') }),
 });
 
 // ---- sources (hianime-shaped) ------------------------------------------------

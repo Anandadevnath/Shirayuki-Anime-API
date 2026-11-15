@@ -21,7 +21,7 @@ import hianimeEpisodeSourcesRouter from "./src/hianime/router/streaming-server.j
 import hianimeProxyRouter from "./src/hianime/router/proxy.js";
 import scraplingRouter from "./src/scrapling/router/index.js";
 import anvRouter from "./src/anv/router/index.js";
-import { renderLandingPage, API_CATALOG } from "./src/ui/landing.js";
+import { renderLandingPage, renderProviderPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
 
 const app = new Hono();
@@ -41,6 +41,16 @@ app.get("/", (c) => {
 app.get("/endpoints.json", (c) => {
   c.header("Cache-Control", "no-store, no-cache, must-revalidate");
   return c.json({ message: "Shirayuki-Anime-API", ...API_CATALOG });
+});
+
+// One explorer page per provider (e.g. /p/hianime, /p/reanime).
+app.get("/p/:id", (c) => {
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate");
+  const html = renderProviderPage(c.req.param("id"));
+  if (!html) {
+    return c.json({ success: false, message: "Unknown provider" }, 404);
+  }
+  return c.html(html);
 });
 
 // API Routes

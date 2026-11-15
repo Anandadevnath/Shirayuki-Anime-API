@@ -1,5 +1,6 @@
-// API explorer landing page served at "/". The endpoint catalog below is the
-// single source of truth — it renders the HTML and also backs /endpoints.json.
+// API explorer served at "/" (hub) and "/p/:id" (one page per provider).
+// The endpoint catalog below is the single source of truth — it renders the
+// HTML and also backs /endpoints.json.
 
 // Build the standard provider surface (listings + search + discover + streaming).
 const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) => {
@@ -217,7 +218,8 @@ export const API_CATALOG = {
         {
           title: 'Streaming',
           items: [
-            { label: 'Episode sources', path: '/api/v2/anv/episode/sources?animeId=naruto-eybxz&ep=1&category=sub', desc: 'hianime-shaped response: servers (Orange/Pear/Banana), m3u8 link, 12 subtitle tracks, proxied proxyM3u8. First call launches a stealth browser for the session cookie (~4s).' },
+            { label: 'Episode servers', path: '/api/v2/anv/episode/servers?animeId=naruto-eybxz&ep=1', desc: 'hianime-shaped sub/dub server lists (Orange/Pear/Banana). Pass a serverId or name as ?server= to Episode sources.' },
+            { label: 'Episode sources', path: '/api/v2/anv/episode/sources?animeId=naruto-eybxz&ep=1&category=sub', desc: 'hianime-shaped response: m3u8 link, subtitle tracks, AniSkip intro/outro, proxied proxyM3u8. First call launches a stealth browser for the session cookie (~4s).' },
             { label: 'Proxy', path: '/api/v2/anv/proxy?url=...', desc: 'Cookie-carrying HLS proxy for anv.to/stream/* (master, variants, disguised TS segments, VTT).', noTry: true },
             { label: 'Player page', path: '/api/v2/anv/play?animeId=naruto-eybxz&ep=1', desc: 'Built-in HLS player that plays the anv stream through hls.js.' },
           ],
@@ -227,6 +229,11 @@ export const API_CATALOG = {
   ],
 };
 
+// Short monogram per provider — UI-only, kept out of API_CATALOG so
+// /endpoints.json stays a clean API description.
+const MARKS = { hianime: 'HI', anikoto: 'AK', animex: 'AX', reanime: 'RA', anv: 'AV' };
+const mark = (p) => MARKS[p.id] || p.name.slice(0, 2).toUpperCase();
+
 const esc = (s) =>
   String(s)
     .replace(/&/g, '&amp;')
@@ -234,97 +241,337 @@ const esc = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-const countEndpoints = () =>
-  API_CATALOG.providers.reduce((n, p) => n + p.groups.reduce((m, g) => m + g.items.length, 0), 0);
+const countEndpoints = (p) => p.groups.reduce((n, g) => n + g.items.length, 0);
+const countAllEndpoints = () => API_CATALOG.providers.reduce((n, p) => n + countEndpoints(p), 0);
+
+const CHEVRON = `<svg class="pgo" viewBox="0 0 24 24" width="15" height="15" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+
+const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" />`;
 
 const renderItem = (item) => {
   const tryBtn = item.noTry
-    ? `<span class="btn btn-disabled" title="Fill in url & ref">Try</span>`
-    : `<a class="btn btn-try" href="${esc(item.path)}" target="_blank" rel="noopener">Try ↗</a>`;
+    ? `<span class="btn btn-off" title="Fill in url &amp; ref">Try</span>`
+    : `<a class="btn btn-try" href="${esc(item.path)}" target="_blank" rel="noopener">Try</a>`;
   return `
     <article class="ep" data-search="${esc((item.label + ' ' + item.desc + ' ' + item.path).toLowerCase())}">
-      <div class="ep-main">
+      <div class="ep-body">
         <div class="ep-head">
-          <span class="method">GET</span>
-          <h4 class="ep-title">${esc(item.label)}</h4>
+          <h3 class="ep-title">${esc(item.label)}</h3>
           <p class="ep-desc">${esc(item.desc)}</p>
         </div>
         <code class="ep-path">${esc(item.path)}</code>
       </div>
       <div class="ep-actions">
         ${tryBtn}
-        <button class="btn btn-copy" data-path="${esc(item.path)}">Copy</button>
+        <button class="btn btn-copy" data-path="${esc(item.path)}" type="button">Copy</button>
       </div>
     </article>`;
 };
 
 const renderGroup = (group) => `
-  <div class="group">
-    <div class="group-title">${esc(group.title)}<span class="group-count">${group.items.length}</span></div>
-    <div class="ep-grid">${group.items.map(renderItem).join('')}</div>
-  </div>`;
-
-const renderProvider = (p) => `
-  <section class="provider" id="${esc(p.id)}" style="--accent:${esc(p.accent)}">
-    <header class="provider-head">
-      <span class="dot"></span>
-      <h2>${esc(p.name)}</h2>
-      <span class="src-badge">${esc(p.source)}</span>
-      <span class="base">/api/v2/${esc(p.id)}</span>
+  <section class="group">
+    <header class="sec-head">
+      <h2>${esc(group.title)}</h2>
+      <span class="n">${group.items.length}</span>
     </header>
-    ${p.groups.map(renderGroup).join('')}
+    <div class="ep-list">${group.items.map(renderItem).join('')}</div>
   </section>`;
 
-const navPills = () =>
-  API_CATALOG.providers
-    .map((p) => `<a class="pill" href="#${esc(p.id)}" style="--accent:${esc(p.accent)}">${esc(p.name)}</a>`)
-    .join('');
+const renderProviderRow = (p) => `
+  <li class="prow" style="--accent:${esc(p.accent)}">
+    <a href="/p/${esc(p.id)}">
+      <span class="mark">${esc(mark(p))}</span>
+      <span class="pbody">
+        <span class="pname">${esc(p.name)}</span>
+        <span class="psrc">${esc(p.source)}</span>
+      </span>
+      <span class="pcnt">${countEndpoints(p)}</span>
+      ${CHEVRON}
+    </a>
+  </li>`;
+
+const SPECIMEN = `
+  <div class="specimen" role="group" aria-label="Example request and response">
+    <div class="srow">
+      <span class="sk">Request</span>
+      <code><span class="tok-get">GET</span> <span class="tok-path">/api/v2/hianime/episode/sources</span><span class="tok-dim">?animeEpisodeId=one-piece-1&amp;ep=1</span></code>
+    </div>
+    <div class="srow">
+      <span class="sk">Response</span>
+      <code><span class="tok-dim">{</span> <span class="tok-key">"success"</span><span class="tok-dim">:</span> <span class="tok-val">true</span><span class="tok-dim">,</span> <span class="tok-key">"data"</span><span class="tok-dim">:</span> <span class="tok-dim">{ … }</span><span class="tok-dim">,</span> <span class="tok-key">"extractionTimeSec"</span><span class="tok-dim">:</span> <span class="tok-val">0.42</span> <span class="tok-dim">}</span></code>
+    </div>
+  </div>`;
 
 const CLIENT_JS = `
-  // Live search filter
-  var q = document.getElementById('search');
-  q.addEventListener('input', function () {
-    var term = q.value.trim().toLowerCase();
-    document.querySelectorAll('.ep').forEach(function (el) {
-      el.style.display = !term || el.dataset.search.indexOf(term) > -1 ? '' : 'none';
-    });
-    document.querySelectorAll('.group').forEach(function (g) {
-      var any = g.querySelectorAll('.ep:not([style*="display: none"])').length;
-      g.style.display = any ? '' : 'none';
-    });
-    document.querySelectorAll('.provider').forEach(function (s) {
-      var any = s.querySelectorAll('.ep:not([style*="display: none"])').length;
-      s.style.display = any ? '' : 'none';
-    });
-  });
+  (function () {
+    function toast(msg) {
+      var t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(window.__tt);
+      window.__tt = setTimeout(function () { t.classList.remove('show'); }, 1600);
+    }
 
-  // Copy full URL to clipboard
-  function toast(msg) {
-    var t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(window.__tt); window.__tt = setTimeout(function () { t.classList.remove('show'); }, 1400);
-  }
-  document.addEventListener('click', function (e) {
-    var btn = e.target.closest('.btn-copy');
-    if (!btn) return;
-    var full = location.origin + btn.dataset.path;
-    navigator.clipboard.writeText(full).then(function () { toast('Copied ' + btn.dataset.path); });
-  });
+    // Copy the full endpoint URL to the clipboard.
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.btn-copy');
+      if (!btn) return;
+      var path = btn.dataset.path;
+      var full = location.origin + path;
+      if (!navigator.clipboard) { toast('Clipboard unavailable'); return; }
+      navigator.clipboard.writeText(full).then(
+        function () { toast('Copied ' + path); },
+        function () { toast('Could not copy'); }
+      );
+    });
 
-  // Scrollspy for nav pills
-  var pills = [].slice.call(document.querySelectorAll('.pill'));
-  var sections = pills.map(function (a) { return document.querySelector(a.getAttribute('href')); });
-  function onScroll() {
-    var y = window.scrollY + 140, idx = 0;
-    sections.forEach(function (s, i) { if (s && s.offsetTop <= y) idx = i; });
-    pills.forEach(function (p, i) { p.classList.toggle('active', i === idx); });
-  }
-  window.addEventListener('scroll', onScroll); onScroll();
+    // Live filter over endpoints on a provider page.
+    var q = document.getElementById('search');
+    if (!q) return;
+    q.addEventListener('input', function () {
+      var term = q.value.trim().toLowerCase();
+      var items = document.querySelectorAll('.ep');
+      items.forEach(function (el) {
+        el.hidden = !!term && el.dataset.search.indexOf(term) === -1;
+      });
+      document.querySelectorAll('.group').forEach(function (g) {
+        g.hidden = !g.querySelector('.ep:not([hidden])');
+      });
+      var empty = document.getElementById('empty');
+      if (empty) {
+        var any = document.querySelector('.ep:not([hidden])');
+        empty.hidden = !!any;
+      }
+    });
+  })();
 `;
 
+const BASE_CSS = `:root{
+  /* Sode no Shirayuki tokens — glacial slate surfaces, one frost accent. */
+  --base:oklch(0.07 0.012 250);
+  --surface:oklch(0.12 0.013 250);
+  --surface-2:oklch(0.16 0.014 250);
+  --line:oklch(0.26 0.015 250);
+  --snow:oklch(0.97 0.004 240);
+  --muted:oklch(0.82 0.014 245);
+  --faint:oklch(0.78 0.014 248);
+  --frost:oklch(0.82 0.12 215);
+  --frost-lift:oklch(0.88 0.11 210);
+  --ok:oklch(0.8 0.13 165);
+
+  --font-sans:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display:"Manrope","Plus Jakarta Sans",ui-sans-serif,system-ui,sans-serif;
+  --font-accent:"Space Grotesk",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;color:var(--snow);font-family:var(--font-sans);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(940px 460px at 8% -14%,oklch(0.82 0.12 215 / 0.075),transparent 64%),
+    radial-gradient(720px 380px at 96% 4%,oklch(0.83 0.07 350 / 0.045),transparent 62%),
+    var(--base);
+  min-height:100vh;
+}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--frost);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1060px;margin:0 auto;padding:0 32px}
+@media(max-width:560px){.wrap{padding:0 20px}}
+
+/* ── Top bar ───────────────────────────────────────────── */
+.top{position:sticky;top:0;z-index:30;border-bottom:1px solid var(--line);
+  background:color-mix(in oklch,var(--base) 86%,transparent);
+  backdrop-filter:blur(16px) saturate(1.25)}
+.top-in{display:flex;align-items:center;gap:14px;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);
+  font-weight:800;font-size:16.5px;letter-spacing:-.012em;line-height:1}
+.brand .glyph{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
+  background:var(--frost);color:var(--base);font-size:14.5px;font-weight:800;line-height:1;
+  box-shadow:inset 0 1px 0 oklch(1 0 0 / 0.18)}
+.brand .api{color:var(--faint);font-weight:600;font-size:.86em;letter-spacing:.015em}
+@media(max-width:560px){
+  .top-in{height:58px}
+  .brand{font-size:15.5px;gap:10px}
+  .brand .glyph{width:28px;height:28px;border-radius:8px;font-size:13px}
+}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+.top-link{font-family:var(--font-accent);font-size:13px;color:var(--faint);transition:color .16s}
+.top-link:hover{color:var(--frost)}
+
+/* ── Hero ──────────────────────────────────────────────── */
+.hero{padding:80px 0 0}
+.hero h1{font-family:var(--font-display);font-weight:800;letter-spacing:-.032em;
+  font-size:clamp(2.3rem,5.4vw,3.4rem);line-height:1.03;margin:0 0 20px;max-width:15ch}
+.lede{margin:0 0 34px;max-width:54ch;color:var(--muted);font-size:16px}
+@media(max-width:560px){.hero{padding-top:56px}.lede{font-size:15px}}
+
+/* Request/response specimen — the page's one memorable artifact. */
+.specimen{border:1px solid var(--line);border-radius:13px;background:var(--surface);
+  overflow:hidden;max-width:760px}
+.srow{display:grid;grid-template-columns:84px 1fr;gap:18px;align-items:baseline;padding:15px 18px}
+.srow + .srow{border-top:1px solid var(--line)}
+.sk{font-size:11.5px;color:var(--faint);letter-spacing:.01em}
+.srow code{font-family:var(--font-accent);font-size:12.5px;line-height:1.75;
+  word-break:break-word;color:var(--snow)}
+.tok-get{color:var(--ok);font-weight:600}
+.tok-path{color:var(--frost)}
+.tok-dim{color:var(--faint)}
+.tok-key{color:var(--muted)}
+.tok-val{color:var(--frost)}
+@media(max-width:560px){
+  .srow{grid-template-columns:1fr;gap:6px;padding:13px 15px}
+  .srow code{font-size:12px}
+}
+
+/* ── Section heading ───────────────────────────────────── */
+.sec-head{display:flex;align-items:baseline;gap:12px;
+  padding:0 4px 12px;border-bottom:1px solid var(--line)}
+.sec-head h2{font-family:var(--font-display);font-size:1.0625rem;font-weight:700;
+  letter-spacing:-.012em;margin:0;color:var(--snow)}
+.sec-head .n{margin-left:auto;font-family:var(--font-accent);font-size:12.5px;color:var(--faint)}
+
+/* ── Provider index (hub) ──────────────────────────────── */
+.index{padding:62px 0 84px}
+.plist{list-style:none;margin:0;padding:0}
+.prow a{position:relative;display:grid;grid-template-columns:38px 1fr auto 15px;gap:18px;
+  align-items:center;padding:17px 8px 17px 15px;border-bottom:1px solid var(--line);
+  transition:background-color .18s ease}
+.prow a::before{content:"";position:absolute;left:0;top:15px;bottom:15px;width:2px;
+  border-radius:2px;background:var(--accent);opacity:0;transition:opacity .18s ease}
+.prow a:hover{background:color-mix(in oklch,var(--surface) 65%,transparent)}
+.prow a:hover::before{opacity:1}
+.prow a:hover .pgo{color:var(--frost);transform:translateX(3px)}
+.mark{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+  border:1px solid var(--line);background:var(--surface);color:var(--accent);
+  font-family:var(--font-accent);font-size:12px;font-weight:600;letter-spacing:.03em;
+  transition:border-color .18s ease}
+.prow a:hover .mark{border-color:color-mix(in oklch,var(--accent) 45%,var(--line))}
+.pbody{min-width:0}
+.pname{display:block;font-family:var(--font-display);font-size:1.0625rem;font-weight:700;
+  letter-spacing:-.014em;line-height:1.25}
+.psrc{display:block;color:var(--faint);font-size:12.5px;font-family:var(--font-accent);
+  margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcnt{font-family:var(--font-accent);font-size:12.5px;color:var(--muted)}
+.pgo{color:var(--faint);transition:color .18s ease,transform .18s ease}
+@media(max-width:560px){
+  .prow a{grid-template-columns:34px 1fr 13px;gap:14px;padding:15px 4px 15px 13px}
+  .pcnt{display:none}
+  .mark{width:34px;height:34px;border-radius:9px;font-size:11px}
+}
+
+/* ── Provider page header ──────────────────────────────── */
+.phead{display:flex;gap:18px;align-items:flex-start;padding:52px 0 8px}
+.phead .mark{width:52px;height:52px;border-radius:13px;font-size:13px;flex:0 0 auto}
+.phead h1{font-family:var(--font-display);font-weight:800;letter-spacing:-.028em;
+  font-size:clamp(1.85rem,3.8vw,2.4rem);line-height:1.1;margin:0 0 7px}
+.phead .src{margin:0;color:var(--muted);font-size:13.5px}
+.pmeta{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:11px;
+  font-family:var(--font-accent);font-size:12.5px;color:var(--faint)}
+.pmeta .path{color:var(--frost)}
+@media(max-width:560px){.phead{padding-top:38px}.phead .mark{width:44px;height:44px}}
+
+/* Provider switcher + search */
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:22px 0 6px;border-bottom:1px solid var(--line)}
+.switch{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);max-width:100%;overflow-x:auto;scrollbar-width:none}
+.switch::-webkit-scrollbar{display:none}
+.switch a{padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:600;
+  color:var(--muted);white-space:nowrap;transition:background-color .16s ease,color .16s ease}
+.switch a:hover{color:var(--snow)}
+.switch a[aria-current="page"]{background:var(--surface-2);color:var(--snow);
+  box-shadow:inset 0 0 0 1px var(--line)}
+.search{position:relative;margin-left:auto;min-width:250px;flex:1;max-width:330px}
+.search input{width:100%;padding:8px 13px 8px 34px;border-radius:9px;border:1px solid var(--line);
+  background:var(--surface);color:var(--snow);font-family:var(--font-sans);font-size:13px;
+  outline:none;transition:border-color .16s ease,box-shadow .16s ease}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{border-color:var(--frost);box-shadow:0 0 0 3px oklch(0.82 0.12 215 / 0.14)}
+.search .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+  color:var(--faint);font-size:14px;pointer-events:none}
+@media(max-width:720px){
+  .search{margin-left:0;max-width:none;min-width:0;width:100%}
+  .toolbar{padding-top:18px}
+}
+
+/* ── Endpoint groups ───────────────────────────────────── */
+main.body{padding-bottom:84px}
+.group{margin-top:42px}
+.ep-list{margin-top:2px}
+.ep{position:relative;display:grid;grid-template-columns:1fr auto;gap:22px;
+  align-items:start;padding:16px 8px 16px 15px;border-bottom:1px solid var(--line);
+  transition:background-color .18s ease}
+.ep::before{content:"";position:absolute;left:0;top:13px;bottom:13px;width:2px;
+  border-radius:2px;background:var(--frost);opacity:0;transition:opacity .18s ease}
+.ep:hover{background:color-mix(in oklch,var(--surface) 60%,transparent)}
+.ep:hover::before{opacity:1}
+.ep-body{min-width:0}
+.ep-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ep-title{font-family:var(--font-display);font-size:.9375rem;font-weight:700;
+  letter-spacing:-.008em;margin:0;line-height:1.4}
+.ep-desc{margin:0;color:var(--faint);font-size:13px;line-height:1.5}
+.ep-path{display:block;margin-top:7px;font-family:var(--font-accent);font-size:12.5px;
+  color:var(--muted);word-break:break-all;line-height:1.6}
+.ep-actions{display:flex;gap:8px;flex:0 0 auto;padding-top:1px}
+@media(max-width:620px){
+  .ep{grid-template-columns:1fr;gap:12px;padding:15px 4px 15px 13px}
+  .ep-actions{padding-top:0}
+  .ep-desc{width:100%}
+}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--font-sans);font-size:12.5px;font-weight:600;line-height:1;
+  border-radius:7px;padding:7px 13px;cursor:pointer;white-space:nowrap;
+  border:1px solid var(--line);background:transparent;color:var(--muted);
+  transition:color .16s ease,border-color .16s ease,background-color .16s ease}
+.btn-try{background:var(--frost);border-color:var(--frost);color:var(--base)}
+.btn-try:hover{background:var(--frost-lift);border-color:var(--frost-lift)}
+.btn-copy:hover{color:var(--snow);border-color:color-mix(in oklch,var(--frost) 50%,var(--line))}
+.btn-off{opacity:.4;cursor:not-allowed}
+
+/* Empty search state */
+#empty{padding:52px 4px;color:var(--faint);font-size:14px}
+#empty strong{color:var(--muted);font-weight:600}
+
+/* Toast + footer */
+#toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,14px);
+  background:var(--surface-2);border:1px solid var(--line);color:var(--snow);
+  padding:11px 17px;border-radius:10px;font-size:13px;z-index:50;
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+footer{border-top:1px solid var(--line);padding:24px 0 56px;
+  color:var(--faint);font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px 14px}
+footer code{font-family:var(--font-accent);color:var(--muted);
+  background:var(--surface);padding:2px 6px;border-radius:5px;border:1px solid var(--line)}
+footer a{color:var(--muted);border-bottom:1px solid var(--line)}
+footer a:hover{color:var(--frost);border-color:var(--frost)}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+  html{scroll-behavior:auto}
+}`;
+
+const topBar = (right = '') => `
+  <div class="top">
+    <div class="wrap top-in">
+      <a class="brand" href="/"><span class="glyph" aria-hidden="true">桜</span>Shirayuki<span class="api">API</span></a>
+      <div class="top-right">
+        <a class="top-link" href="/endpoints.json">endpoints.json</a>
+        ${right}
+      </div>
+    </div>
+  </div>`;
+
 export const renderLandingPage = () => {
-  const total = countEndpoints();
   const providerCount = API_CATALOG.providers.length;
+  const total = countAllEndpoints();
 
   return `<!doctype html>
 <html lang="en">
@@ -332,128 +579,104 @@ export const renderLandingPage = () => {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(API_CATALOG.name)}</title>
-<style>
-:root{
-  --bg:#0a0b10; --bg2:#0f1118; --card:#13161f; --card2:#171b26;
-  --line:#222636; --text:#e7e9f0; --muted:#9aa0b4; --brand:#8b8cf7;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:128px}
-body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#1b1e2e 0,transparent 60%),var(--bg);
-  color:var(--text);font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial}
-a{color:inherit;text-decoration:none}
-.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
-
-/* Topbar */
-.top{position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
-  background:linear-gradient(180deg,rgba(10,11,16,.92),rgba(10,11,16,.72));border-bottom:1px solid var(--line)}
-.top-inner{display:flex;align-items:center;gap:18px;padding:14px 0}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px;font-size:18px;white-space:nowrap}
-.logo .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
-  background:linear-gradient(135deg,#8b8cf7,#f472b6);color:#0a0b10;font-weight:900}
-.search{flex:1;position:relative}
-.search input{width:100%;padding:11px 14px 11px 38px;border-radius:11px;border:1px solid var(--line);
-  background:var(--bg2);color:var(--text);outline:none;font-size:14px}
-.search input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(139,140,247,.15)}
-.search .ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted)}
-.nav{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0 14px}
-.pill{padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);
-  color:var(--muted);font-size:13px;font-weight:600;transition:.15s}
-.pill:hover{color:var(--text);border-color:var(--accent)}
-.pill.active{color:#0a0b10;background:var(--accent);border-color:var(--accent)}
-
-/* Hero */
-.hero{padding-top:42px;padding-bottom:26px}
-.hero h1{margin:0 0 8px;font-size:34px;font-weight:850;letter-spacing:-.5px}
-.hero p{margin:0;color:var(--muted);max-width:640px}
-.stats{display:flex;gap:14px;margin-top:24px;flex-wrap:wrap}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:104px}
-.stat b{font-size:24px;line-height:1.1;display:block}
-.stat span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
-
-/* Provider */
-.provider{padding:34px 0;border-top:1px solid var(--line);scroll-margin-top:128px}
-.provider-head{display:flex;align-items:center;gap:11px;margin-bottom:20px;flex-wrap:wrap}
-.provider-head h2{margin:0;font-size:22px;font-weight:800;line-height:1}
-.dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent);flex:0 0 auto}
-.src-badge{font-size:12px;line-height:1;color:var(--accent);border:1px solid var(--accent);
-  padding:5px 10px;border-radius:999px;opacity:.9}
-.base{margin-left:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted)}
-.group{margin:18px 0}
-.group-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;
-  display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.group-count{font-size:11px;background:var(--card2);color:var(--muted);padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
-
-/* Endpoint list */
-.ep-grid{display:flex;flex-direction:column;gap:9px}
-.ep{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line);
-  border-radius:12px;padding:13px 16px;transition:.15s}
-.ep:hover{border-color:var(--accent);background:var(--card2)}
-.ep-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
-.ep-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
-.method{font-size:11px;font-weight:800;color:#34d399;border:1px solid #2a5a47;background:#0e1a16;
-  padding:3px 7px;border-radius:6px;letter-spacing:.5px;line-height:1;flex:0 0 auto}
-.ep-title{margin:0;font-size:15px;font-weight:700;line-height:1.2;flex:0 0 auto}
-.ep-desc{margin:0;color:var(--muted);font-size:13px;line-height:1.3}
-.ep-path{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#cdd2e6;
-  background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;
-  word-break:break-all;align-self:flex-start;max-width:100%}
-.ep-actions{display:flex;gap:8px;flex:0 0 auto}
-@media(max-width:640px){
-  .ep{flex-direction:column;align-items:stretch}
-  .ep-actions{justify-content:flex-start}
-}
-.btn{display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;
-  border-radius:9px;padding:7px 14px;line-height:1;cursor:pointer;font-family:inherit;
-  border:1px solid var(--line);background:var(--card2);color:var(--text);transition:.15s}
-.btn-try{background:var(--accent);border-color:var(--accent);color:#0a0b10}
-.btn-try:hover{filter:brightness(1.08)}
-.btn-copy:hover{border-color:var(--accent);color:var(--accent)}
-.btn-disabled{opacity:.45;cursor:not-allowed}
-
-/* Toast + footer */
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
-  background:#1b1f2c;border:1px solid var(--line);color:var(--text);padding:11px 18px;border-radius:11px;
-  font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:50}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-footer{border-top:1px solid var(--line);padding-top:26px;padding-bottom:50px;color:var(--muted);font-size:13px}
-footer code{color:#cdd2e6;background:var(--bg2);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
-@media(max-width:620px){.hero h1{font-size:27px}.base{display:none}}
-</style>
+<meta name="description" content="${esc(API_CATALOG.tagline)}" />
+${FONTS}
+<style>${BASE_CSS}</style>
 </head>
 <body>
-  <div class="top">
-    <div class="wrap">
-      <div class="top-inner">
-        <div class="logo"><span class="mark">桜</span> Shirayuki API</div>
-        <div class="search">
-          <span class="ic">⌕</span>
-          <input id="search" type="search" placeholder="Search endpoints…  (e.g. sources, genre, schedule)" autocomplete="off" />
-        </div>
-      </div>
-      <nav class="nav">${navPills()}</nav>
-    </div>
-  </div>
+  ${topBar(`<span class="top-link" aria-hidden="true">v2</span>`)}
 
   <header class="wrap hero">
-    <h1>${esc(API_CATALOG.name)}</h1>
-    <p>${esc(API_CATALOG.tagline)}</p>
-    <div class="stats">
-      <div class="stat"><b>${providerCount}</b><span>Providers</span></div>
-      <div class="stat"><b>${total}</b><span>Endpoints</span></div>
-      <div class="stat"><b>v2</b><span>API version</span></div>
-    </div>
+    <h1>One envelope. Every provider.</h1>
+    <p class="lede">Listings, search, metadata and HLS stream resolution from
+      ${providerCount} upstream catalogs, returned in a single response shape.
+      ${total} documented endpoints, all <code>GET</code>, all JSON.</p>
+    ${SPECIMEN}
   </header>
 
-  <main class="wrap">
-    ${API_CATALOG.providers.map(renderProvider).join('')}
+  <main class="wrap index">
+    <header class="sec-head">
+      <h2>Providers</h2>
+      <span class="n">${providerCount}</span>
+    </header>
+    <ul class="plist">${API_CATALOG.providers.map(renderProviderRow).join('')}</ul>
   </main>
 
   <footer class="wrap">
-    Base path <code>/api/v2/&lt;provider&gt;</code> · Raw catalog at <code><a href="/endpoints.json">/endpoints.json</a></code> · All routes are <code>GET</code> and return JSON.
+    <span>Base path <code>/api/v2/&lt;provider&gt;</code></span>
+    <span>Raw catalog <a href="/endpoints.json">/endpoints.json</a></span>
+    <span>Every route returns <code>{ success, data, extractionTimeSec }</code></span>
   </footer>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script>${CLIENT_JS}</script>
+</body>
+</html>`;
+};
+
+export const renderProviderPage = (providerId) => {
+  const p = API_CATALOG.providers.find((pr) => pr.id === providerId);
+  if (!p) return null;
+  const total = countEndpoints(p);
+
+  const switcher = API_CATALOG.providers
+    .map((pr) => {
+      const current = pr.id === p.id ? ' aria-current="page"' : '';
+      return `<a href="/p/${esc(pr.id)}"${current}>${esc(pr.name)}</a>`;
+    })
+    .join('');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${esc(p.name)} · ${esc(API_CATALOG.name)}</title>
+<meta name="description" content="${esc(p.name)} endpoints — ${esc(p.source)}." />
+${FONTS}
+<style>${BASE_CSS}</style>
+</head>
+<body>
+  ${topBar()}
+
+  <header class="wrap">
+    <div class="phead" style="--accent:${esc(p.accent)}">
+      <span class="mark" aria-hidden="true">${esc(mark(p))}</span>
+      <div>
+        <h1>${esc(p.name)}</h1>
+        <p class="src">${esc(p.source)}</p>
+        <div class="pmeta">
+          <span class="path">/api/v2/${esc(p.id)}</span>
+          <span>${total} endpoints</span>
+          <span>${p.groups.length} groups</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <nav class="switch" aria-label="Providers">
+        <a href="/">All</a>${switcher}
+      </nav>
+      <div class="search">
+        <span class="ic" aria-hidden="true">⌕</span>
+        <input id="search" type="search" placeholder="Filter ${esc(p.name)} endpoints"
+          aria-label="Filter endpoints" autocomplete="off" />
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap body">
+    ${p.groups.map(renderGroup).join('')}
+    <p id="empty" hidden>No endpoints match that filter.</p>
+  </main>
+
+  <footer class="wrap">
+    <span>Base path <code>/api/v2/${esc(p.id)}</code></span>
+    <span>Raw catalog <a href="/endpoints.json">/endpoints.json</a></span>
+    <span>Every route returns <code>{ success, data, extractionTimeSec }</code></span>
+  </footer>
+
+  <div id="toast" role="status" aria-live="polite"></div>
   <script>${CLIENT_JS}</script>
 </body>
 </html>`;

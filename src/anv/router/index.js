@@ -5,6 +5,7 @@ import {
   anvSearchController,
   anvAnimeController,
   anvEpisodesController,
+  anvEpisodeServersController,
   anvEpisodeSourcesController,
   anvProxyController,
 } from '../controllers/index.js';
@@ -17,6 +18,7 @@ router.get('/browse', anvBrowseController);
 router.get('/search', anvSearchController);
 router.get('/anime/:animeId', anvAnimeController);
 router.get('/anime/:animeId/episodes', anvEpisodesController);
+router.get('/episode/servers', anvEpisodeServersController);
 router.get('/episode/sources', anvEpisodeSourcesController);
 
 // Browser tab opening a proxied playlist directly gets an hls.js page (same as hianime).
