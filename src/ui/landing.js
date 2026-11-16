@@ -180,8 +180,9 @@ export const API_CATALOG = {
         {
           title: 'Streaming',
           items: [
-            { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=go-lion-4q2k84&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links.' },
-            { label: 'Episode sources', path: '/api/v2/reanime/episode/sources?animeId=go-lion-4q2k84&ep=1', desc: 'hianime-shaped response with a real server-resolved m3u8 (WASM de-obfuscation + XOR-decrypted playlist) and a proxied proxyM3u8.' },
+            { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=naruto-bjfend&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links.' },
+            { label: 'Episode sources', path: '/api/v2/reanime/episode/sources?animeId=naruto-bjfend&ep=1&server=HD-1&category=sub', desc: 'hianime-shaped response with a real server-resolved m3u8 (WASM de-obfuscation + XOR-decrypted playlist) and a proxied proxyM3u8.' },
+            { label: 'Player page', path: '/api/v2/reanime/play?animeId=naruto-bjfend&ep=1&server=HD-1&category=sub', desc: 'Built-in HLS player that re-resolves the sources and plays the reanime proxyM3u8 through hls.js.' },
           ],
         },
       ],
