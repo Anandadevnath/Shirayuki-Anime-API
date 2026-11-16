@@ -9,3 +9,8 @@ save.txt
 __pycache__/
 *.py[cod]
 .kilo/
+
+# Local MCP server config
+.mcp.json
+# graphify knowledge-graph output
+graphify-out/
