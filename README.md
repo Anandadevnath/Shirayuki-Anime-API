@@ -20,7 +20,7 @@ ships with the project at `/`.
 | **HiAnime** | `hianime.at` | Listings, search, seasons, characters, streaming (MegaPlay + vidplay resolvers) |
 | **Anikoto** | `anikototv.to` | Home, search, details, streaming (MegaPlay resolver) |
 | **Animex** | `animex.one` | GraphQL catalog, search, streaming (player API) |
-| **Re:ANIME** | `reanime.to` | Public JSON catalog, schedule, staff/characters, WASM-decoded streams |
+| **Re:ANIME** | `reanime.cz` | Public JSON catalog, schedule, staff/characters, WASM-decoded streams |
 | **anv** | `anv.to` | Open catalog API; streams gated behind a session cookie (handled internally) |
 
 A sixth module, **Scrapling**, is a generic fetch/parse bridge to a Python

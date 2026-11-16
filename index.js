@@ -43,7 +43,7 @@ app.get("/endpoints.json", (c) => {
   return c.json({ message: "Shirayuki-Anime-API", ...API_CATALOG });
 });
 
-// One explorer page per provider (e.g. /p/hianime, /p/reanime).
+// One explorer page per provider (e.g. /p/hianime).
 app.get("/p/:id", (c) => {
   c.header("Cache-Control", "no-store, no-cache, must-revalidate");
   const html = renderProviderPage(c.req.param("id"));
@@ -91,7 +91,6 @@ app.route("/api/v2/animex/play", createPlayPage("/api/v2/animex/episode/sources"
 // reanime streams are resolved server-side (WASM de-obfuscation + XOR-decrypted
 // playlist) and served through /proxy, so it uses the same HLS player page.
 app.route("/api/v2/reanime/play", createPlayPage("/api/v2/reanime/episode/sources"));
-
 
 // Render health check (render.yaml healthCheckPath).
 app.get("/health", (c) => c.json({ success: true }));
