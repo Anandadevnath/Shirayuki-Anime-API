@@ -3,7 +3,7 @@
 // HTML and also backs /endpoints.json.
 
 // Build the standard provider surface (listings + search + discover + streaming).
-const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) => {
+const fullProvider = ({ id, name, accent, source, anime, epId, server }) => {
   const b = `/api/v2/${id}`;
   const listings = [
     { label: 'Home', path: `${b}/home`, desc: 'Spotlight, trending, popular, top-airing & seasonal rows.' },
@@ -43,9 +43,6 @@ const fullProvider = ({ id, name, accent, source, anime, epId, server, proxy }) 
         items: [
           { label: 'Episode servers', path: `${b}/episode/servers?animeEpisodeId=${epId}&ep=1`, desc: 'Available sub/dub servers for an episode.' },
           { label: 'Episode sources', path: `${b}/episode/sources?animeEpisodeId=${epId}&ep=1&server=${server}&category=sub`, desc: 'Playable m3u8 + subtitle tracks, intro/outro.' },
-          ...(proxy
-            ? [{ label: 'Stream proxy', path: `${b}/proxy?url=...&ref=...`, desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true }]
-            : []),
         ],
       },
     ],
@@ -87,7 +84,6 @@ export const API_CATALOG = {
           items: [
             { label: 'Episode servers', path: '/api/v2/hianime/episode/servers?animeEpisodeId=one-piece-1&ep=1', desc: 'Available sub/dub servers (HD-1, HD-2) for an episode.' },
             { label: 'Episode sources', path: '/api/v2/hianime/episode/sources?animeEpisodeId=one-piece-1&ep=1&server=HD-1&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaPlay AES-CBC resolver.' },
-            { label: 'Stream proxy', path: '/api/v2/hianime/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true },
           ],
         },
       ],
@@ -118,7 +114,6 @@ export const API_CATALOG = {
           items: [
             { label: 'Episode servers', path: '/api/v2/anikoto/episode/servers?animeId=naruto-eybxz&ep=1', desc: 'Available sub/dub servers (HD-1, Vidstream-1, Vidstream-2) for an episode.' },
             { label: 'Episode sources', path: '/api/v2/anikoto/episode/sources?animeId=naruto-eybxz&ep=1&server=Vidstream-2&category=sub', desc: 'Playable m3u8 + subtitle tracks via the MegaPlay AES-CBC resolver.' },
-            { label: 'Stream proxy', path: '/api/v2/anikoto/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true },
           ],
         },
       ],
@@ -150,7 +145,6 @@ export const API_CATALOG = {
           items: [
             { label: 'Episode servers', path: '/api/v2/animex/episode/servers?animeId=naruto-20&ep=1', desc: 'Available sub/dub providers (Nero, Yuki, Zuna...) for an episode.' },
             { label: 'Episode sources', path: '/api/v2/animex/episode/sources?animeId=naruto-20&ep=1&server=nero&category=sub', desc: 'Playable m3u8 + subtitle tracks + intro/outro chapters.' },
-            { label: 'Stream proxy', path: '/api/v2/animex/proxy?url=...&ref=...', desc: 'CORS/referer proxy that rewrites the HLS playlist.', noTry: true },
           ],
         },
       ],
@@ -188,8 +182,6 @@ export const API_CATALOG = {
           items: [
             { label: 'Episode servers', path: '/api/v2/reanime/episode/servers?animeId=go-lion-4q2k84&ep=1', desc: 'Sub/dub flixcloud servers (HD-1, HD-2) with embed links.' },
             { label: 'Episode sources', path: '/api/v2/reanime/episode/sources?animeId=go-lion-4q2k84&ep=1', desc: 'hianime-shaped response with a real server-resolved m3u8 (WASM de-obfuscation + XOR-decrypted playlist) and a proxied proxyM3u8.' },
-            { label: 'Proxy', path: '/api/v2/reanime/proxy?url=...', desc: 'HLS proxy: decrypts flixcloud playlists and rewrites children; plays through hls.js.' },
-            { label: 'Player page', path: '/api/v2/reanime/play?animeId=go-lion-4q2k84&ep=1', desc: 'Built-in HLS player that plays the reanime proxyM3u8 through hls.js.' },
           ],
         },
       ],
@@ -220,8 +212,6 @@ export const API_CATALOG = {
           items: [
             { label: 'Episode servers', path: '/api/v2/anv/episode/servers?animeId=naruto-eybxz&ep=1', desc: 'hianime-shaped sub/dub server lists (Orange/Pear/Banana). Pass a serverId or name as ?server= to Episode sources.' },
             { label: 'Episode sources', path: '/api/v2/anv/episode/sources?animeId=naruto-eybxz&ep=1&category=sub', desc: 'hianime-shaped response: m3u8 link, subtitle tracks, AniSkip intro/outro, proxied proxyM3u8. First call launches a stealth browser for the session cookie (~4s).' },
-            { label: 'Proxy', path: '/api/v2/anv/proxy?url=...', desc: 'Cookie-carrying HLS proxy for anv.to/stream/* (master, variants, disguised TS segments, VTT).', noTry: true },
-            { label: 'Player page', path: '/api/v2/anv/play?animeId=naruto-eybxz&ep=1', desc: 'Built-in HLS player that plays the anv stream through hls.js.' },
           ],
         },
       ],
@@ -253,9 +243,7 @@ const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" />`;
 
 const renderItem = (item) => {
-  const tryBtn = item.noTry
-    ? `<span class="btn btn-off" title="Fill in url &amp; ref">Try</span>`
-    : `<a class="btn btn-try" href="${esc(item.path)}" target="_blank" rel="noopener">Try</a>`;
+  const tryBtn = `<a class="btn btn-try" href="${esc(item.path)}" target="_blank" rel="noopener">Try</a>`;
   return `
     <article class="ep" data-search="${esc((item.label + ' ' + item.desc + ' ' + item.path).toLowerCase())}">
       <div class="ep-body">
@@ -534,7 +522,6 @@ main.body{padding-bottom:84px}
 .btn-try{background:var(--frost);border-color:var(--frost);color:var(--base)}
 .btn-try:hover{background:var(--frost-lift);border-color:var(--frost-lift)}
 .btn-copy:hover{color:var(--snow);border-color:color-mix(in oklch,var(--frost) 50%,var(--line))}
-.btn-off{opacity:.4;cursor:not-allowed}
 
 /* Empty search state */
 #empty{padding:52px 4px;color:var(--faint);font-size:14px}
