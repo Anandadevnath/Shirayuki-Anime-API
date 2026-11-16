@@ -1,12 +1,13 @@
-import { REANIME_BASE_URL, flixGet, normalizeCategory } from '../_shared.js';
-import { fetchReanimeAnime } from './anime.js';
+import { flixGet, normalizeCategory } from '../_shared.js';
+import { fetchReanimeAnime, getReanimeEpisodes } from './anime.js';
 import { resolveFlixcloud } from './flixcloud.js';
 import { getSkipTimes } from '../../utils/aniskip.js';
 
 // Shape the sources response exactly like the hianime provider
-// (source/episodeId/server/category/embed/streamResolved/reason/note/link/tracks/
-// intro/outro/referer/sources[]) so clients consume reanime with the same code.
-//
+// (episodeId/server/category/streamResolved/reason/note/tracks/intro/outro/
+// sources[]) so clients consume reanime with the same code. `link`/`embed`/
+// `referer` are intentionally omitted: the IP-bound m3u8 is already carried by
+// `sources[].url` and the playable URLs are `proxyM3u8` + `embeddedUrl`.//
 // Unlike the raw flixcloud embed (browser-only), we replay the player's own
 // resolution server-side — WASM key-mix + AES-CBC for the URL blob, then the
 // patched-hls.js XOR key for the playlist body — which yields a real .m3u8 that
@@ -22,7 +23,15 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
 
   const episodeNumber = Number(ep) > 0 ? Number(ep) : 1;
   const wantCategory = normalizeCategory(category);
-  const [data, skip] = await Promise.all([flixGet(anilistId, episodeNumber, malId), getSkipTimes(malId, episodeNumber)]);
+  const [data, skip, episodes] = await Promise.all([
+    flixGet(anilistId, episodeNumber, malId),
+    getSkipTimes(malId, episodeNumber),
+    getReanimeEpisodes({ animeId: details.animeId }).catch(() => null),
+  ]);
+
+  // Match hianime's shape: episodeId is the catalogue episode id, not internal $id.
+  const catalogEpisode = (episodes?.episodes || []).find((e) => e.episode === episodeNumber) || null;
+  const episodeId = catalogEpisode?.episodeId || `ep-${episodeNumber}`;
 
   if (!data?.success || !data?.servers?.length) {
     const err = new Error(data?.error || `No servers found for episode ${episodeNumber}`);
@@ -47,19 +56,15 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
   const ordered = wanted ? [...pool.filter(isMatch), ...pool.filter((s) => !isMatch(s))] : pool;
 
   const base = {
-    source: `${REANIME_BASE_URL}/api/flix/${anilistId}/${episodeNumber}${malId ? `?mal=${malId}` : ''}`,
-    episodeId: null,
+    episodeId,
     category: wantCategory,
     server: null,
-    embed: null,
     streamResolved: false,
     reason: null,
     note: null,
-    link: null,
     tracks: [],
     intro: skip.intro,
     outro: skip.outro,
-    referer: null,
     sources: [],
   };
 
@@ -78,7 +83,7 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
       continue;
     }
     try {
-      const { url: link, playlistKey } = await resolveFlixcloud(embedUrl);
+      const { url: link, playlistKey, tracks } = await resolveFlixcloud(embedUrl);
       const referer = 'https://flixcloud.cc/';
       const keyB64 = playlistKey.toString('base64');
 
@@ -94,14 +99,12 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
 
       return {
         ...base,
-        episodeId: candidate.id,
         server: candidate.name,
         category: candidate.category || wantCategory,
-        embed: embedUrl,
         streamResolved: true,
-        link,
-        tracks: [],
-        referer,
+        tracks,
+        intro: skip.intro,
+        outro: skip.outro,
         sources: [
           {
             url: link,
@@ -129,21 +132,16 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
 
   return {
     ...base,
-    episodeId: fallback?.id || null,
     server: fallback?.name || null,
     category: fallback?.category || wantCategory,
-    embed: fallbackEmbed,
     reason: 'resolution-failed',
     note: lastError?.message || 'all servers failed to resolve',
-    referer: fallbackEmbed ? `${new URL(fallbackEmbed).origin}/` : null,
     sources: fallbackEmbed
       ? [
           {
             url: fallbackEmbed,
             type: 'embed',
             quality: 'auto',
-            server: fallback.name,
-            category: fallback.category || wantCategory,
             browserOnly: true,
             proxyM3u8: fallbackPlay,
             embeddedUrl: fallbackEmbed,
