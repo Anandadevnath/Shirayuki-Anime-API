@@ -1,9 +1,8 @@
 import { anvPost, getSessionCookie, invalidateSession, absoluteUrl, httpError, ANV_BASE_URL } from '../_shared.js';
 import { getAnvAnime } from './catalog.js';
+import { getSkipTimes } from '../../utils/aniskip.js';
 
 const SLUG_CACHE_TTL_MS = 10 * 60 * 1000;
-const ANISKIP_URL = 'https://api.aniskip.com/v2/skip-times';
-const ANISKIP_TIMEOUT_MS = 5000;
 const slugToIds = new Map(); // slug -> { anvId, malId, expiresAt }
 
 // /api/episode wants anv's numeric id; accept either that or the slug.
@@ -18,25 +17,6 @@ const resolveIds = async (animeId) => {
   return ids;
 };
 
-// anv has no skip data; AniSkip (by MAL id) gives OP/ED in hianime's { start, end } form.
-const getSkipTimes = async (malId, episode) => {
-  const none = { intro: null, outro: null };
-  if (!malId) return none;
-  try {
-    const url = `${ANISKIP_URL}/${malId}/${episode}?types[]=op&types[]=ed&episodeLength=0`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(ANISKIP_TIMEOUT_MS) });
-    if (!res.ok) return none; // 404 = no skip times submitted for this episode
-    const { results = [] } = await res.json();
-    const pick = (type) => {
-      const r = results.find((x) => x.skipType === type)?.interval;
-      return r ? { start: Math.round(r.startTime), end: Math.round(r.endTime) } : null;
-    };
-    return { intro: pick('op'), outro: pick('ed') };
-  } catch (err) {
-    console.warn(`[anv] aniskip ${malId}/${episode} failed: ${err.message}`);
-    return none;
-  }
-};
 
 const requestEpisode = async (body, referer) => {
   const cookie = await getSessionCookie();

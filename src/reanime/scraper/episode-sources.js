@@ -1,6 +1,7 @@
 import { REANIME_BASE_URL, flixGet, normalizeCategory } from '../_shared.js';
 import { fetchReanimeAnime } from './anime.js';
 import { resolveFlixcloud } from './flixcloud.js';
+import { getSkipTimes } from '../../utils/aniskip.js';
 
 // Shape the sources response exactly like the hianime provider
 // (source/episodeId/server/category/embed/streamResolved/reason/note/link/tracks/
@@ -21,7 +22,7 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
 
   const episodeNumber = Number(ep) > 0 ? Number(ep) : 1;
   const wantCategory = normalizeCategory(category);
-  const data = await flixGet(anilistId, episodeNumber, malId);
+  const [data, skip] = await Promise.all([flixGet(anilistId, episodeNumber, malId), getSkipTimes(malId, episodeNumber)]);
 
   if (!data?.success || !data?.servers?.length) {
     const err = new Error(data?.error || `No servers found for episode ${episodeNumber}`);
@@ -48,22 +49,17 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
   const base = {
     source: `${REANIME_BASE_URL}/api/flix/${anilistId}/${episodeNumber}${malId ? `?mal=${malId}` : ''}`,
     episodeId: null,
-    animeId: details.animeId,
-    anilistId,
-    malId,
-    episode: episodeNumber,
-    server: null,
     category: wantCategory,
+    server: null,
     embed: null,
     streamResolved: false,
     reason: null,
     note: null,
     link: null,
     tracks: [],
-    intro: null,
-    outro: null,
+    intro: skip.intro,
+    outro: skip.outro,
     referer: null,
-    servers: all,
     sources: [],
   };
 
@@ -86,7 +82,15 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
       const referer = 'https://flixcloud.cc/';
       const keyB64 = playlistKey.toString('base64');
 
-      const proxyM3u8 = `${proxyBase}?url=${encodeURIComponent(link)}&ref=${encodeURIComponent(referer)}&key=${encodeURIComponent(keyB64)}`;
+      // Sub and dub share one stream; dub is the English audio rendition.
+      const audioParam = candidate.category === 'dub' ? '&audio=eng' : '';
+      const proxiedPlaylist = `${proxyBase}?url=${encodeURIComponent(link)}&ref=${encodeURIComponent(referer)}&key=${encodeURIComponent(keyB64)}${audioParam}`;
+      // Match hianime: proxyM3u8 is the /play page (re-resolves a fresh token on
+      // every open), embeddedUrl is the raw proxied playlist for HLS clients.
+      const playParams = new URLSearchParams({ animeId: details.animeId, ep: String(episodeNumber) });
+      if (candidate.name) playParams.set('server', candidate.name);
+      if (candidate.category) playParams.set('category', candidate.category);
+      const proxyM3u8 = origin ? `${origin}/api/v2/reanime/play?${playParams.toString()}` : proxiedPlaylist;
 
       return {
         ...base,
@@ -103,10 +107,8 @@ export const getReanimeEpisodeSources = async ({ animeId, ep, server, category, 
             url: link,
             type: 'm3u8',
             quality: 'auto',
-            server: candidate.name,
-            category: candidate.category || wantCategory,
             proxyM3u8,
-            embeddedUrl: proxyM3u8,
+            embeddedUrl: proxiedPlaylist,
           },
         ],
       };
