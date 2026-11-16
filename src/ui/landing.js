@@ -242,31 +242,29 @@ const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" />`;
 
-const renderItem = (item) => {
+const renderItem = (item, origin = '') => {
+  const url = origin + item.path;
   const tryBtn = `<a class="btn btn-try" href="${esc(item.path)}" target="_blank" rel="noopener">Try</a>`;
   return `
-    <article class="ep" data-search="${esc((item.label + ' ' + item.desc + ' ' + item.path).toLowerCase())}">
+    <article class="ep" data-search="${esc((item.label + ' ' + item.path).toLowerCase())}">
       <div class="ep-body">
-        <div class="ep-head">
-          <h3 class="ep-title">${esc(item.label)}</h3>
-          <p class="ep-desc">${esc(item.desc)}</p>
-        </div>
-        <code class="ep-path">${esc(item.path)}</code>
+        <h3 class="ep-title">${esc(item.label)}</h3>
+        <code class="ep-path">${esc(url)}</code>
       </div>
       <div class="ep-actions">
         ${tryBtn}
-        <button class="btn btn-copy" data-path="${esc(item.path)}" type="button">Copy</button>
+        <button class="btn btn-copy" data-path="${esc(url)}" type="button">Copy</button>
       </div>
     </article>`;
 };
 
-const renderGroup = (group) => `
+const renderGroup = (group, origin = '') => `
   <section class="group">
     <header class="sec-head">
       <h2>${esc(group.title)}</h2>
       <span class="n">${group.items.length}</span>
     </header>
-    <div class="ep-list">${group.items.map(renderItem).join('')}</div>
+    <div class="ep-list">${group.items.map((item) => renderItem(item, origin)).join('')}</div>
   </section>`;
 
 const renderProviderRow = (p) => `
@@ -309,11 +307,10 @@ const CLIENT_JS = `
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('.btn-copy');
       if (!btn) return;
-      var path = btn.dataset.path;
-      var full = location.origin + path;
+      var full = btn.dataset.path;
       if (!navigator.clipboard) { toast('Clipboard unavailable'); return; }
       navigator.clipboard.writeText(full).then(
-        function () { toast('Copied ' + path); },
+        function () { toast('Copied ' + full); },
         function () { toast('Could not copy'); }
       );
     });
@@ -500,17 +497,14 @@ main.body{padding-bottom:84px}
 .ep:hover{background:color-mix(in oklch,var(--surface) 60%,transparent)}
 .ep:hover::before{opacity:1}
 .ep-body{min-width:0}
-.ep-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ep-title{font-family:var(--font-display);font-size:.9375rem;font-weight:700;
   letter-spacing:-.008em;margin:0;line-height:1.4}
-.ep-desc{margin:0;color:var(--faint);font-size:13px;line-height:1.5}
-.ep-path{display:block;margin-top:7px;font-family:var(--font-accent);font-size:12.5px;
+.ep-path{display:block;margin-top:6px;font-family:var(--font-accent);font-size:12.5px;
   color:var(--muted);word-break:break-all;line-height:1.6}
 .ep-actions{display:flex;gap:8px;flex:0 0 auto;padding-top:1px}
 @media(max-width:620px){
   .ep{grid-template-columns:1fr;gap:12px;padding:15px 4px 15px 13px}
   .ep-actions{padding-top:0}
-  .ep-desc{width:100%}
 }
 
 /* Buttons */
@@ -601,7 +595,7 @@ ${FONTS}
 </html>`;
 };
 
-export const renderProviderPage = (providerId) => {
+export const renderProviderPage = (providerId, origin = '') => {
   const p = API_CATALOG.providers.find((pr) => pr.id === providerId);
   if (!p) return null;
   const total = countEndpoints(p);
@@ -653,7 +647,7 @@ ${FONTS}
   </header>
 
   <main class="wrap body">
-    ${p.groups.map(renderGroup).join('')}
+    ${p.groups.map((group) => renderGroup(group, origin)).join('')}
     <p id="empty" hidden>No endpoints match that filter.</p>
   </main>
 

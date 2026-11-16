@@ -23,6 +23,7 @@ import scraplingRouter from "./src/scrapling/router/index.js";
 import anvRouter from "./src/anv/router/index.js";
 import { renderLandingPage, renderProviderPage, API_CATALOG } from "./src/ui/landing.js";
 import { createPlayPage } from "./src/ui/play-page.js";
+import { getRequestOrigin } from "./src/utils/request-origin.js";
 
 const app = new Hono();
 
@@ -46,7 +47,7 @@ app.get("/endpoints.json", (c) => {
 // One explorer page per provider (e.g. /p/hianime).
 app.get("/p/:id", (c) => {
   c.header("Cache-Control", "no-store, no-cache, must-revalidate");
-  const html = renderProviderPage(c.req.param("id"));
+  const html = renderProviderPage(c.req.param("id"), getRequestOrigin(c));
   if (!html) {
     return c.json({ success: false, message: "Unknown provider" }, 404);
   }
