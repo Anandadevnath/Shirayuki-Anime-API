@@ -14,6 +14,8 @@ export const reanimeProxyController = async (c) => {
       basePath: PROXY_BASE_PATH,
       // The 32-byte WASM playlist key, base64-encoded in the query string.
       playlistKey: key ? Buffer.from(key, 'base64') : null,
+      // Preferred audio language (e.g. "eng" for dub); validated as a short code.
+      audio: /^[a-z]{2,3}$/i.test(c.req.query('audio') || '') ? c.req.query('audio') : null,
     });
 
     c.header('Content-Type', result.contentType);

@@ -72,6 +72,27 @@ const rewritePlaylist = (body, playlistUrl, referer, basePath, key = '') => {
     .join('\n');
 };
 
+// Flixcloud serves sub and dub as one master with alternate audio renditions
+// (jpn DEFAULT=YES, eng DEFAULT=NO). Make `language` the default so players pick
+// it. No-op when the master has no rendition in that language.
+export const selectDefaultAudio = (body, language) => {
+  const lang = String(language || '').toLowerCase();
+  const isAudio = (line) => /^#EXT-X-MEDIA:/i.test(line) && /TYPE=AUDIO/i.test(line);
+  const langOf = (line) => (line.match(/LANGUAGE="([^"]*)"/i)?.[1] || '').toLowerCase();
+  const lines = body.split('\n');
+  if (!lang || !lines.some((line) => isAudio(line) && langOf(line) === lang)) return body;
+
+  return lines
+    .map((line) => {
+      if (!isAudio(line)) return line;
+      const flag = langOf(line) === lang ? 'YES' : 'NO';
+      return /DEFAULT=(YES|NO)/i.test(line)
+        ? line.replace(/DEFAULT=(YES|NO)/i, `DEFAULT=${flag}`)
+        : `${line},DEFAULT=${flag}`;
+    })
+    .join('\n');
+};
+
 // Flixcloud wraps some servers' TS segments in a fake WebP/PNG container. This
 // mirrors the patched hls.js: if the RIFF/WEBP (or PNG) magic is present, drop the
 // header; then, unless the payload already starts with a TS sync byte (0x47), XOR
@@ -108,7 +129,7 @@ const unwrapImageSegment = (buf) => {
 // `playlistKey` (the 32-byte WASM key as base64) to decrypt them before rewriting.
 // Either way the rewritten playlist routes children back through this proxy; a
 // stream URL's referer is required by the CDN and is carried in the `ref` query.
-export const proxyStream = async ({ url, referer, basePath, playlistKey }) => {
+export const proxyStream = async ({ url, referer, basePath, playlistKey, audio }) => {
   if (!url) {
     const err = new Error('url query parameter is required');
     err.status = 400;
@@ -158,7 +179,7 @@ export const proxyStream = async ({ url, referer, basePath, playlistKey }) => {
     }
     noteHostsFrom(text, url);
     const keyB64 = playlistKey ? playlistKey.toString('base64') : '';
-    const rewritten = rewritePlaylist(text, url, upstreamReferer, basePath, keyB64);
+    const rewritten = rewritePlaylist(selectDefaultAudio(text, audio), url, upstreamReferer, basePath, keyB64);
     return {
       kind: 'playlist',
       body: rewritten,

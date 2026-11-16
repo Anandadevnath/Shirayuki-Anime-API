@@ -130,6 +130,8 @@ export const getReanimeAnimeDetails = async ({ animeId } = {}) => {
   };
 };
 
+const EPISODES_PER_PAGE = 30;
+
 // Episode list from /api/v1/anime/{id}/episodes (source: jikan), paginated.
 export const getReanimeEpisodes = async ({ animeId, page } = {}) => {
   const clean = normalizeAnimeId(animeId);
@@ -140,8 +142,10 @@ export const getReanimeEpisodes = async ({ animeId, page } = {}) => {
   }
 
   const normalizedPage = Math.max(1, Number(page) || 1);
+  // Upstream ignores `page`; it paginates by limit/offset only.
   const data = await apiGet(`/anime/${encodeURIComponent(clean)}/episodes`, {
-    page: normalizedPage,
+    limit: EPISODES_PER_PAGE,
+    offset: (normalizedPage - 1) * EPISODES_PER_PAGE,
   });
 
   const episodes = (data?.data || []).map((ep) => ({

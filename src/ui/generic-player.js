@@ -18,17 +18,25 @@ const log=m=>{document.getElementById('log').textContent+=m+'\\n';console.log(m)
 const proxy=${JSON.stringify(proxyUrl)};
 log('proxy='+proxy);
 if(window.Hls && Hls.isSupported()){
-  const hls=new Hls();
+  const hls=new Hls({maxBufferLength:30,maxMaxBufferLength:60,backBufferLength:30});
   window.__hls=hls;
   hls.on(Hls.Events.ERROR, (e, d) => {
     log((d.fatal ? 'FATAL ' : 'err ') + d.type + ' -> ' + (d.details || '') + (d.fatal ? '  (link may be expired or corrupted — re-fetch sources for a fresh URL)' : ''));
     if (d.fatal) {
       const box = document.getElementById('log');
-      box.textContent += (box.textContent ? '\n' : '') + '\n[STUCK] The stream could not start. This almost always means the /uwu/ token expired or the URL was corrupted on copy.';
+      box.textContent += (box.textContent ? '\\n' : '') + '\\n[STUCK] The stream could not start. This almost always means the /uwu/ token expired or the URL was corrupted on copy.';
       box.classList.add('errs');
     }
   });
-  hls.on(Hls.Events.MANIFEST_PARSED,()=>{log('MANIFEST PARSED — playing');video.play().catch(()=>{});});
+  hls.on(Hls.Events.MANIFEST_PARSED,()=>{
+    if(hls.audioTracks && hls.audioTracks.length){
+      const d=Math.max(0,hls.audioTracks.findIndex(t=>t.default));hls.audioTracks.forEach((t,i)=>{t.enabled=(i===d);});if(hls.audioTrack!==d)hls.audioTrack=d;
+    }
+    log('MANIFEST PARSED — playing');video.play().catch(()=>{});
+  });
+  hls.on(Hls.Events.AUDIO_TRACKS_UPDATED,()=>{
+    if(hls.audioTracks.length && !hls.audioTracks.some(t=>t.enabled)) hls.audioTracks[0].enabled=true;
+  });
   hls.loadSource(proxy);
   hls.attachMedia(video);
 } else if(video.canPlayType('application/vnd.apple.mpegurl')){video.src=proxy;}

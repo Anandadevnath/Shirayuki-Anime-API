@@ -1,6 +1,6 @@
 import { axios } from '../utils/scrapper-deps.js';
 
-export const REANIME_BASE_URL = 'https://reanime.to';
+export const REANIME_BASE_URL = 'https://reanime.cz';
 export const REANIME_API = `${REANIME_BASE_URL}/api/v1`;
 // The flix server list lives outside /api/v1 and is keyed by anilist id + episode.
 export const REANIME_FLIX_URL = `${REANIME_BASE_URL}/api/flix`;

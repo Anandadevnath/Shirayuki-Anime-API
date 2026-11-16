@@ -74,19 +74,39 @@ async function play(){
       });
     };
     addTracks();
-    // Prefer a ready-made embeddedUrl; otherwise proxy the raw url ourselves.
+    // Prefer a ready-made proxied playlist, otherwise proxy the raw url ourselves.
+    // proxyM3u8 is only usable here when it points at the proxy endpoint — for
+    // some providers it is this page's own URL, which would loop.
     const proxyBase = api.split('/episode/sources')[0] + '/proxy';
-    const proxy = src.embeddedUrl
-      ? src.embeddedUrl
+    const readyProxy = src.embeddedUrl || (src.proxyM3u8 && src.proxyM3u8.indexOf('/proxy?') !== -1 ? src.proxyM3u8 : null);
+    const proxy = readyProxy
+      ? readyProxy
       : location.origin + proxyBase + '?url=' + encodeURIComponent(src.url) + '&ref=' + encodeURIComponent(src.referer || '');
-    log('episode '+j.data.episode+'  server '+src.server+'/'+src.category+'  quality='+src.quality);
+    log('episode '+(j.data.episode??ep)+'  server '+(src.server||j.data.server)+'/'+(src.category||j.data.category)+'  quality='+src.quality);
     log('proxy='+proxy);
     if(window.Hls && Hls.isSupported()){
       if(window.__hls) window.__hls.destroy();
-      const hls=new Hls();
+      // Providers serve separate audio renditions; cap the forward buffer so hls.js
+      // does not fetch the whole VOD playlist and trip bufferFullError.
+      const hls=new Hls({maxBufferLength:30,maxMaxBufferLength:60,backBufferLength:30});
       window.__hls=hls;
-      hls.on(Hls.Events.ERROR,(e,d)=>{log((d.fatal?'FATAL ':'err ')+d.type+' -> '+(d.details||''));});
-      hls.on(Hls.Events.MANIFEST_PARSED,()=>{log('MANIFEST PARSED — playing');video.play().catch(()=>{});});
+      hls.on(Hls.Events.ERROR,(e,d)=>{
+        const fatal=d.fatal?'FATAL ':'err ';
+        log(fatal+d.type+' -> '+(d.details||''));
+        if(d.fatal) hls.recoverMediaError();
+      });
+      hls.on(Hls.Events.MANIFEST_PARSED,()=>{
+        // A separate audio rendition only plays once its track is enabled.
+        if(hls.audioTracks && hls.audioTracks.length){
+          const d=Math.max(0,hls.audioTracks.findIndex(t=>t.default));hls.audioTracks.forEach((t,i)=>{t.enabled=(i===d);});if(hls.audioTrack!==d)hls.audioTrack=d;
+        }
+        log('MANIFEST PARSED — playing');
+        video.play().catch(()=>{});
+      });
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED,()=>{
+        if(hls.audioTracks.length && !hls.audioTracks.some(t=>t.enabled)) hls.audioTracks[0].enabled=true;
+        log('audio tracks: '+hls.audioTracks.length);
+      });
       hls.loadSource(proxy);
       hls.attachMedia(video);
       log('hls.js attached (MSE)');

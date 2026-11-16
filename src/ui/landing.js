@@ -159,12 +159,12 @@ export const API_CATALOG = {
       id: 'reanime',
       name: 'Re:ANIME',
       accent: '#f59e0b',
-      source: 'reanime.to public JSON API',
+      source: 'reanime.cz public JSON API',
       groups: [
         {
           title: 'Listings',
           items: [
-            { label: 'Home', path: '/api/v2/reanime', desc: 'Trending, latest-aired, new-on-site & upcoming rows from reanime.to/api/v1/home.' },
+            { label: 'Home', path: '/api/v2/reanime', desc: 'Trending, latest-aired, new-on-site & upcoming rows from reanime.cz/api/v1/home.' },
             { label: 'Schedule', path: '/api/v2/reanime/schedule', desc: 'Weekly release calendar (UTC): per-day episode buckets + flat date-sorted list.' },
             { label: 'Catalog', path: '/api/v2/reanime/catalog?page=1&format=TV', desc: 'Full-catalog browse; filters: format, status, season, year (sort is ignored upstream).' },
             { label: 'Genre', path: '/api/v2/reanime/genre/action?page=1', desc: 'Titles by genre.' },

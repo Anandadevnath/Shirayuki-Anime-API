@@ -1,6 +1,6 @@
 import { REANIME_BASE_URL, apiGet, mapAnimeCard } from '../_shared.js';
 
-// Weekly release schedule from reanime.to/api/v1/schedule — one call returns
+// Weekly release schedule from reanime.cz/api/v1/schedule — one call returns
 // the full week (UTC) with per-day episode entries.
 export const getReanimeSchedule = async () => {
   const data = await apiGet('/schedule');

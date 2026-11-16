@@ -1,7 +1,7 @@
 import { REANIME_BASE_URL, apiGet, mapAnimeCard } from '../_shared.js';
 
 // Home is assembled entirely from the site's own public API
-// (reanime.to/api/v1/home) — one call returns every home row.
+// (reanime.cz/api/v1/home) — one call returns every home row.
 export const getReanimeHomePage = async () => {
   const data = await apiGet('/home');
 
